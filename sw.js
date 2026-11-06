@@ -1,9 +1,9 @@
-const CACHE_NAME = 'radio-rescate-v43';
+const CACHE_NAME = 'radio-rescate-v44';
 const ASSETS_TO_CACHE = [
   './',
   './emergency.html',
-  './emergency.css?v=43',
-  './emergency-app.js?v=43',
+  './emergency.css?v=44',
+  './emergency-app.js?v=44',
   './manifest-emergency.json',
   './index.html',
   './styles.css?v=29',

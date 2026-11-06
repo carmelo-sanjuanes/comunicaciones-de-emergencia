@@ -931,17 +931,29 @@ html, body.emergency-body {
     background: var(--card-bg);
     border: 1.5px solid var(--border-color);
     border-radius: 10px;
-    padding: 10px;
+    padding: 8px 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-around;
+    justify-content: flex-start;
     gap: 8px;
 }
 
+.radar-horizontal-row {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
 .radar-compass-disc {
-    width: clamp(135px, 22dvh, 175px);
-    height: clamp(135px, 22dvh, 175px);
+    width: 170px;
+    height: 170px;
+    flex-shrink: 0;
     border-radius: 50%;
     background: radial-gradient(circle, #0d2111 0%, #040a05 75%);
     border: 3px solid #285430;
@@ -1008,17 +1020,20 @@ html, body.emergency-body {
 }
 
 .radar-metrics-grid {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     gap: 6px;
 }
 
 .metric-box {
     background: #060b07;
     border: 1px solid #1e3322;
+    border-left: 3px solid var(--rescue-green);
     border-radius: 6px;
-    padding: 6px 8px;
+    padding: 5px 8px;
     display: flex;
     flex-direction: column;
 }
