@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. REGISTRO DE SERVICE WORKER PARA CACHÉ 100% OFFLINE ---
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js?v=39').then(() => {
-            console.log('[PWA] Service Worker v39 registrado para operación 100% sin internet.');
+        navigator.serviceWorker.register('./sw.js?v=40').then(() => {
+            console.log('[PWA] Service Worker v40 registrado para operación 100% sin internet.');
         }).catch(err => console.warn('[PWA] Advertencia SW:', err));
     }
 

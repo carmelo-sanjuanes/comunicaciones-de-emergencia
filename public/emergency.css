@@ -262,17 +262,17 @@ html, body.emergency-body {
 }
 
 .telemetry-chip {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 800;
     color: #b8d8bc;
     background: #0f1810;
     border: 1.5px solid #233826;
-    padding: 4px 7px;
+    padding: 4px 6px;
     border-radius: 6px;
     display: flex;
     align-items: center;
-    gap: 4px;
-    height: 32px;
+    gap: 3px;
+    height: 30px;
     white-space: nowrap;
 }
 
@@ -293,15 +293,15 @@ html, body.emergency-body {
     background: #0c2612;
     border: 1.5px solid var(--rescue-green);
     color: var(--rescue-green);
-    padding: 4px 8px;
+    padding: 4px 6px;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 900;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
-    height: 32px;
+    gap: 3px;
+    height: 30px;
     white-space: nowrap;
 }
 
@@ -309,11 +309,11 @@ html, body.emergency-body {
     background: #121c14;
     border: 1.5px solid #2e4a33;
     color: #ffffff;
-    padding: 4px 8px;
+    padding: 4px 7px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.85rem;
-    height: 32px;
+    font-size: 0.82rem;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -618,10 +618,70 @@ html, body.emergency-body {
     flex: 1;
     min-height: 0;
     width: 100%;
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
     margin: 0 auto;
+}
+
+/* INSIGNIA LATERAL TÁCTICA: SANJUANES SOLUCIONES */
+.sanjuanes-brand-box {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 82px;
+    height: clamp(128px, 21dvh, 168px);
+    background: linear-gradient(180deg, #0b1c0e 0%, #050d07 100%);
+    border: 1.5px solid #1f4d28;
+    border-left: 3px solid var(--rescue-green);
+    border-radius: 10px;
+    padding: 8px 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 5px;
+    box-shadow: 0 0 14px rgba(0, 255, 102, 0.12);
+}
+
+.sanjuanes-brand-box .brand-icon {
+    font-size: 1.35rem;
+    color: var(--rescue-green);
+    margin-bottom: 2px;
+    filter: drop-shadow(0 0 6px rgba(0, 255, 102, 0.4));
+}
+
+.sanjuanes-brand-box .brand-main {
+    font-size: 0.68rem;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 0.4px;
+    line-height: 1.1;
+}
+
+.sanjuanes-brand-box .brand-sub {
+    font-size: 0.62rem;
+    font-weight: 900;
+    color: var(--rescue-green);
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+}
+
+.sanjuanes-brand-box .brand-line {
+    width: 70%;
+    height: 1px;
+    background: #1f4d28;
+    margin: 2px 0;
+}
+
+.sanjuanes-brand-box .brand-tag {
+    font-size: 0.56rem;
+    font-weight: 800;
+    color: #88b890;
+    letter-spacing: 0.5px;
 }
 
 .big-ptt-button {
