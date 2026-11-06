@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RadioRescate - Radio de Comunicación de Emergencia PTT</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css?v=29">
+    <meta name="theme-color" content="#121813">
+    <!-- Font Awesome Icons for Tactical Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+
+        <!-- BARRA SUPERIOR DE ESTADO TÁCTICO -->
+        <header class="top-bar">
+            <div class="status-badge" id="networkStatusBadge">
+                <span class="status-dot offline"></span>
+                <span id="networkStatusText">BUSCANDO BASE...</span>
+            </div>
+
+            <div class="callsign-box" id="callsignBox">
+                <i class="fa-solid fa-walkie-talkie"></i>
+                <input type="text" id="callsignInput" value="RADIO-101" title="Toca para cambiar indicativo">
+            </div>
+
+            <div class="telemetry-box">
+                <span id="repeaterBadge" class="repeater-badge" title="Nodo Repetidor en Malla P2P (Extensor de Cobertura)"><i class="fa-solid fa-tower-cell"></i> MESH</span>
+                <span id="gpsStatus" title="GPS Inactivo"><i class="fa-solid fa-location-crosshairs"></i></span>
+                <span id="batteryStatus" title="Nivel de Batería"><i class="fa-solid fa-battery-full"></i> 100%</span>
+                <button id="infoBtn" class="icon-btn" title="Información de Red / QR"><i class="fa-solid fa-qrcode"></i></button>
+            </div>
+        </header>
+
+        <!-- BANNER ALERTA SOS RECIBIDA -->
+        <div id="sosBanner" class="sos-banner hidden">
+            <div class="sos-alert-content">
+                <i class="fa-solid fa-triangle-exclamation siren-icon"></i>
+                <div class="sos-alert-text">
+                    <strong id="sosCallsign">RADIO-SOS</strong>
+                    <span id="sosMsg">¡ALERTA DE AUXILIO EMITIDA!</span>
+                    <small id="sosLocation">GPS: Obteniendo ubicación...</small>
+                </div>
+                <button id="silenceSosBtn" class="btn-warning">Silenciar Siren</button>
+            </div>
+        </div>
+
+        <!-- CUERPO PRINCIPAL DE LA RADIO -->
+        <main class="radio-body">
+            
+            <!-- PANTALLA DIGITAL LED RADIO -->
+            <section class="lcd-screen">
+                <div class="lcd-header">
+                    <span class="frequency-indicator">FREQ: 144.500 MHz (P2P)</span>
+                    <span id="voxLcdBadge" class="vox-lcd-badge hidden"><i class="fa-solid fa-microphone-lines"></i> VOX</span>
+                    <span class="tx-rx-indicator" id="txRxIndicator">RX STANDBY</span>
+                </div>
+
+                <div class="lcd-main">
+                    <div class="channel-number" id="lcdChannelNum">CH 1</div>
+                    <div class="channel-info">
+                        <h2 id="lcdChannelName">CANAL 1 - EMERGENCIA Y SOS</h2>
+                        <div class="active-speaker" id="activeSpeaker">
+                            <i class="fa-solid fa-volume-high hidden" id="speakerIcon"></i>
+                            <span id="speakerCallsign">Frecuencia Despejada</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MEDIDOR DE SEÑAL Y VU METER -->
+                <div class="vu-meter-container">
+                    <span class="vu-label">S-METER</span>
+                    <canvas id="vuMeterCanvas" width="260" height="18"></canvas>
+                </div>
+            </section>
+
+            <!-- SELECTOR DE CANALES TÁCTICO -->
+            <section class="channel-selector">
+                <div class="section-title"><i class="fa-solid fa-sliders"></i> CANALES DE FRECUENCIA</div>
+                <div class="channel-grid">
+                    <button class="channel-btn active sos-ch" data-channel="1">
+                        <span class="ch-badge">CH 1</span>
+                        <span class="ch-title">EMERGENCIA / SOS</span>
+                    </button>
+                    <button class="channel-btn" data-channel="2">
+                        <span class="ch-badge">CH 2</span>
+                        <span class="ch-title">RESCATE</span>
+                    </button>
+                    <button class="channel-btn" data-channel="3">
+                        <span class="ch-badge">CH 3</span>
+                        <span class="ch-title">LOGÍSTICA</span>
+                    </button>
+                    <button class="channel-btn" data-channel="4">
+                        <span class="ch-badge">CH 4</span>
+                        <span class="ch-title">GENERAL</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- SELECTOR DE FILTRO DE AUDIO TÁCTICO DSP Y MODO PRUEBA DE ECO -->
+            <section class="dsp-selector-section">
+                <div class="dsp-bar-header">
+                    <span><i class="fa-solid fa-wand-magic-sparkles"></i> FILTRO DSP VOZ:</span>
+                    <span id="dspActiveLabel" class="dsp-active-label">ESTÁNDAR (NATIVO)</span>
+                </div>
+                <div class="dsp-grid">
+                    <button class="dsp-btn active" data-dsp="standard" title="Voz normal directa del sistema">
+                        <i class="fa-solid fa-microphone"></i> Normal
+                    </button>
+                    <button class="dsp-btn" data-dsp="tactical" title="Filtro Banda de Radio Militar (300Hz-3.4kHz)">
+                        <i class="fa-solid fa-walkie-talkie"></i> Radio
+                    </button>
+                    <button class="dsp-btn" data-dsp="antiwind" title="Elimina viento y ruido estático con Noise Gate">
+                        <i class="fa-solid fa-wind"></i> Antiviento
+                    </button>
+                    <button class="dsp-btn" data-dsp="boost" title="Realza voces susurradas o lejanas (+3dB)">
+                        <i class="fa-solid fa-bullhorn"></i> Claridad
+                    </button>
+                </div>
+
+                <!-- HERRAMIENTAS DE PRUEBA Y AJUSTE EN UN MISMO CELULAR -->
+                <div class="dsp-test-controls">
+                    <button id="testRecordBtn" class="dsp-test-btn" title="Graba 5 segundos con el filtro activo y te lo reproduce para escuchar cómo suena">
+                        <i class="fa-solid fa-circle-dot"></i> <span id="testRecordLabel">PROBAR GRABACIÓN (5s)</span>
+                    </button>
+                    <button id="testLiveBtn" class="dsp-test-btn" title="Escuchar micrófono en vivo procesado con 0.5s de retardo (evita acople directo)">
+                        <i class="fa-solid fa-headphones"></i> <span id="testLiveLabel">ECO EN VIVO (0.5s)</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- BOTÓN PRINCIPAL PTT (PUSH TO TALK) Y MODO VOX MANOS LIBRES -->
+            <section class="ptt-section">
+                <div class="ptt-controls-bar">
+                    <label class="toggle-switch" title="Activa un toque para abrir transmisión y otro para cerrar">
+                        <input type="checkbox" id="togglePttMode">
+                        <span class="slider"></span>
+                        <span class="label-text">Bloqueo PTT</span>
+                    </label>
+                    <label class="toggle-switch vox-toggle" title="Transmisión automática al hablar sin tocar botones">
+                        <input type="checkbox" id="toggleVoxMode">
+                        <span class="slider vox-slider"></span>
+                        <span class="label-text">VOX (Voz)</span>
+                    </label>
+                    <div class="volume-box">
+                        <i class="fa-solid fa-volume-low"></i>
+                        <input type="range" id="volumeControl" min="0" max="1" step="0.05" value="0.9" title="Volumen de Recepción">
+                    </div>
+                </div>
+
+                <!-- BARRA DE SENSIBILIDAD VOX (ACTIVACIÓN MANOS LIBRES) -->
+                <div id="voxSensBox" class="vox-sens-box hidden">
+                    <span class="vox-sens-label"><i class="fa-solid fa-microphone-lines"></i> Sensibilidad VOX:</span>
+                    <input type="range" id="voxSensControl" min="1" max="10" step="1" value="5" title="1=Baja (Entorno ruidoso) / 10=Alta (Susurros)">
+                    <span id="voxSensVal" class="vox-sens-val">5 (Normal)</span>
+                </div>
+
+                <div class="ptt-button-wrapper">
+                    <button id="pttButton" class="ptt-button">
+                        <div class="ptt-inner">
+                            <i class="fa-solid fa-microphone ptt-icon"></i>
+                            <span class="ptt-label" id="pttLabel">MANTÉN PRESIONADO<br>PARA HABLAR</span>
+                        </div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- PANEL DE BOTÓN SOS DE EMERGENCIA -->
+            <section class="sos-panel">
+                <div class="sos-cover" id="sosCover">
+                    <button id="sosTriggerBtn" class="sos-btn">
+                        <i class="fa-solid fa-biohazard"></i>
+                        <span>EMITIR ALERTA SOS</span>
+                    </button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- NAVEGACIÓN Y PANELES INFERIORES -->
+        <nav class="bottom-nav">
+            <button class="nav-tab active" data-tab="tabRadio">
+                <i class="fa-solid fa-walkie-talkie"></i>
+                <span class="tab-label">Radio PTT</span>
+            </button>
+            <button class="nav-tab" data-tab="tabPeers">
+                <i class="fa-solid fa-satellite-dish"></i>
+                <span class="tab-label">Red Radios <strong class="peer-badge-counter" id="peersCount">1</strong></span>
+            </button>
+            <button class="nav-tab" data-tab="tabMessages">
+                <i class="fa-solid fa-message"></i>
+                <span class="tab-label">Chat Táctico</span>
+            </button>
+        </nav>
+
+        <!-- TAB: RED DE RADIOS Y PEERS -->
+        <section id="tabPeers" class="tab-content hidden">
+            <div class="tab-header">
+                <h3><i class="fa-solid fa-network-wired"></i> Radios en Cobertura P2P</h3>
+                <p>Móviles conectados en esta Zona Wi-Fi / Red de Emergencia</p>
+            </div>
+            <div class="peers-list" id="peersList">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </section>
+
+        <!-- TAB: MENSAJES TÁCTICOS -->
+        <section id="tabMessages" class="tab-content hidden">
+            <div class="tab-header">
+                <h3><i class="fa-solid fa-comment-dots"></i> Mensajería Táctica de Texto</h3>
+                <p>Canal Activo: <strong id="msgChannelName">CANAL 1</strong></p>
+            </div>
+            
+            <div class="quick-messages-bar">
+                <button class="quick-msg-btn">¡Necesitamos agua!</button>
+                <button class="quick-msg-btn">Zona Segura</button>
+                <button class="quick-msg-btn">Punto de Encuentro</button>
+                <button class="quick-msg-btn">Herido Atendido</button>
+            </div>
+
+            <div class="chat-history" id="chatHistory">
+                <!-- Mensajes dinámicos -->
+            </div>
+
+            <div class="chat-input-bar">
+                <input type="text" id="chatInput" placeholder="Escribe un mensaje táctico..." autocomplete="off">
+                <button id="sendChatBtn" class="btn-primary"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </section>
+
+        <!-- MODAL INFORMACIÓN DE RED / CÓDIGO QR -->
+        <div id="infoModal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close-modal" id="closeModalBtn">&times;</span>
+                <h3><i class="fa-solid fa-wifi"></i> Conectar Otros Celulares a la Radio</h3>
+                <p class="modal-intro">Para comunicar múltiples teléfonos sin internet:</p>
+                <ol class="setup-steps">
+                    <li>Activa la <strong>Zona Wi-Fi (Hotspot)</strong> en este celular.</li>
+                    <li>Conecta los demás celulares a esa red Wi-Fi.</li>
+                    <li>Escanea el código QR con los otros teléfonos:</li>
+                </ol>
+
+                <div style="text-align: center; margin: 8px 0;">
+                    <img src="qr_radio_rescate.png" alt="Código QR HTTPS" style="width: 150px; height: 150px; border-radius: 6px; border: 2px solid #00ff66; background: #fff; padding: 4px;">
+                </div>
+
+                <div class="network-addresses-list" id="networkAddressesList">
+                    <p>Cargando direcciones de red...</p>
+                </div>
+
+                <div class="mesh-info-box" style="margin-top: 10px; background: rgba(0, 255, 102, 0.08); border: 1px dashed #00ff66; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; color: #b0ffcc;">
+                    <div style="font-weight: bold; margin-bottom: 4px; color: #00ff66;"><i class="fa-solid fa-tower-cell"></i> Protocolo Malla Multi-Salto (Mesh V1):</div>
+                    <div>• <strong>Desduplicación LRU:</strong> Activa (Filtra loops de señal)</div>
+                    <div>• <strong>Límite TTL / Cobertura:</strong> Hasta 3-5 saltos entre Hotspots</div>
+                    <div>• <strong>Modo Autoportable:</strong> Opera 100% Offline en Red Wi-Fi Local</div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="requestGeoBtn" class="btn-secondary"><i class="fa-solid fa-location-arrow"></i> Actualizar GPS</button>
+                    <button id="closeModalOkBtn" class="btn-primary">Entendido</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js?v=29"></script>
+</body>
+</html>
