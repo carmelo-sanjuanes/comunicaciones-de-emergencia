@@ -435,6 +435,18 @@ function bindServer(server, preferredPort, fallbackPort) {
 
 async function startServers() {
     try {
+        // Soporte para despliegue en la nube (Render, Railway, Fly.io, Heroku)
+        if (process.env.PORT && !process.env.LOCAL_DEV) {
+            const cloudPort = process.env.PORT;
+            io.attach(httpServer);
+            httpServer.listen(cloudPort, '0.0.0.0', () => {
+                console.log('\n======================================================');
+                console.log(`   S.O.S. RESCATE - DESPLIEGUE CLOUD ACTIVO EN PUERTO ${cloudPort}`);
+                console.log('======================================================\n');
+            });
+            return;
+        }
+
         const pkey = await selfsigned.generate([{ name: 'commonName', value: 'RadioRescate' }], { days: 365 });
         const sslOptions = { key: pkey.private, cert: pkey.cert };
         
