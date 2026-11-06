@@ -1,9 +1,9 @@
-const CACHE_NAME = 'radio-rescate-v37';
+const CACHE_NAME = 'radio-rescate-v38';
 const ASSETS_TO_CACHE = [
   './',
   './emergency.html',
-  './emergency.css?v=37',
-  './emergency-app.js?v=37',
+  './emergency.css?v=38',
+  './emergency-app.js?v=38',
   './manifest-emergency.json',
   './index.html',
   './styles.css?v=29',
@@ -36,7 +36,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  // Estrategia: Red primero (para actualizar al instante si hay señal) y Caché instantánea si no hay internet
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
