@@ -467,46 +467,56 @@ html, body.emergency-body {
     outline: none;
 }
 
-.tx-rx-status {
-    background: #050c06;
-    border: 1.5px solid #1f3823;
-    padding: 5px 10px;
+.oscilloscope-container {
+    position: relative;
+    width: 100%;
     height: 36px;
+    background: #020502;
+    border: 1.5px solid #1f3823;
     border-radius: 6px;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    font-size: 0.8rem;
+}
+
+#waveformCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    opacity: 0.45;
+}
+
+.tx-rx-status {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    background: rgba(5, 12, 6, 0.72);
+    padding: 4px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.85rem;
     font-weight: 900;
     color: var(--rescue-green);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .tx-rx-status.transmitting {
-    background: #380606;
-    border-color: var(--rescue-red);
+    background: rgba(56, 6, 6, 0.82);
     color: #ff6666;
 }
 
 .tx-rx-status.receiving {
-    background: #052633;
-    border-color: var(--rescue-cyan);
+    background: rgba(5, 38, 51, 0.82);
     color: var(--rescue-cyan);
-}
-
-.oscilloscope-container {
-    background: #020502;
-    border: 1px solid #172a19;
-    border-radius: 4px;
-    overflow: hidden;
-    height: 28px;
-}
-
-#waveformCanvas {
-    width: 100%;
-    height: 28px;
-    display: block;
 }
 
 /* CONTROL MANOS LIBRES (VOX) COMPACTO Y ACCESIBLE */
