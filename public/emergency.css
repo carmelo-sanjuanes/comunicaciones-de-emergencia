@@ -1,20 +1,20 @@
 /* ==========================================================================
-   ESTILOS TÁCTICOS DE MISIÓN CRÍTICA: S.O.S. RESCATE (PURA ENERGÍA OLED)
+   ESTILOS TÁCTICOS DE MISIÓN CRÍTICA: S.O.S. RESCATE (v37 - ALTA ACCESIBILIDAD WCAG)
+   Controles Grandes, Botón Hablar 100% Centrado, Audio Continuo, Brújula Real
    ========================================================================== */
 
 :root {
     --bg-black: #000000;
-    --card-bg: #0d120e;
-    --border-color: #1a261c;
+    --card-bg: #0b110c;
+    --border-color: #223825;
     --text-white: #ffffff;
-    --text-muted: #88998b;
+    --text-muted: #a8c4ab;
 
-    /* Colores Tácticos de Alta Visibilidad */
+    /* Colores Tácticos de Alto Contraste WCAG AAA */
     --rescue-green: #00ff66;
-    --rescue-amber: #ffaa00;
-    --rescue-red: #ff2a2a;
+    --rescue-amber: #ffbb00;
+    --rescue-red: #ff2222;
     --rescue-cyan: #00e5ff;
-    --rescue-purple: #bb66ff;
 
     --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -39,14 +39,14 @@ body.emergency-body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    font-size: 16px;
 }
 
-/* UTILIDAD UNIVERSAL OCULTAR */
 .hidden {
     display: none !important;
 }
 
-/* OVERLAY APAGÓN OLED (AHORRO EXTREMO) */
+/* OVERLAY APAGÓN OLED (AHORRO EXTREMO CON AUDIO ACTIVO) */
 .oled-overlay {
     position: fixed;
     top: 0;
@@ -60,71 +60,73 @@ body.emergency-body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    padding: 24px;
+    text-align: center;
     cursor: pointer;
-}
-
-.oled-overlay.hidden {
-    display: none !important;
 }
 
 .oled-alert-pill {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    background: #080808;
-    border: 1px solid #1f1f1f;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    color: #444444;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    gap: 10px;
+    padding: 12px 20px;
+    background: #081209;
+    border: 2px solid #1e3a22;
+    border-radius: 30px;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #55aa60;
 }
 
 .pulsing-dot {
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background-color: var(--rescue-green);
-    box-shadow: 0 0 6px var(--rescue-green);
-    animation: blink 2s infinite ease-in-out;
+    box-shadow: 0 0 8px var(--rescue-green);
+    animation: blink 1.8s infinite ease-in-out;
+    flex-shrink: 0;
 }
 
 .oled-hint {
-    margin-top: 24px;
-    font-size: 0.85rem;
-    color: #333333;
-    letter-spacing: 1px;
+    margin-top: 30px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #666666;
 }
 
-/* BANNER DE ALERTA CRÍTICA SOS */
+/* BANNER DE ALERTA CRÍTICA SOS (CON BOTÓN GIGANTE PARA APAGAR) */
 .critical-sos-banner {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    background: #ff0000;
+    background: #d90000;
     color: #ffffff;
     z-index: 10000;
-    box-shadow: 0 4px 20px rgba(255, 0, 0, 0.7);
+    box-shadow: 0 6px 25px rgba(255, 0, 0, 0.85);
+    border-bottom: 3px solid #ffffff;
     animation: alert-flash 0.8s infinite alternate;
 }
 
-.critical-sos-banner.hidden {
-    display: none !important;
+.sos-banner-inner {
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    gap: 10px;
 }
 
-.sos-banner-inner {
+.sos-banner-top {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 16px;
     gap: 12px;
 }
 
 .sos-flash-icon {
-    font-size: 1.8rem;
-    animation: pulse 0.5s infinite alternate;
+    font-size: 2.2rem;
+    color: #ffff00;
 }
 
 .sos-banner-info {
@@ -134,51 +136,57 @@ body.emergency-body {
 }
 
 .sos-title {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 900;
     letter-spacing: 0.5px;
+    color: #ffff00;
 }
 
 .sos-banner-info strong {
-    font-size: 1.1rem;
-    line-height: 1.2;
+    font-size: 1.15rem;
 }
 
 .sos-banner-info span {
-    font-size: 0.75rem;
-    opacity: 0.9;
+    font-size: 0.9rem;
 }
 
 .btn-sos-ack {
+    width: 100%;
+    min-height: 52px;
     background: #000000;
-    color: #ffffff;
-    border: 2px solid #ffffff;
-    padding: 8px 14px;
-    border-radius: 6px;
-    font-weight: 800;
-    font-size: 0.85rem;
+    color: #ffff00;
+    border: 3px solid #ffff00;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 900;
+    font-size: 1.05rem;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-sos-ack:active {
+    background: #ffff00;
+    color: #000000;
 }
 
 /* BANNER DE AUTORIZACIÓN DE MICRÓFONO */
 .mic-prompt-banner {
-    background: #08210f;
+    background: #0a2912;
     border-bottom: 2px solid var(--rescue-green);
     color: var(--rescue-green);
-    padding: 10px 14px;
-    font-size: 0.8rem;
-    font-weight: 800;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    font-weight: 900;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
     cursor: pointer;
     text-align: center;
-    animation: pulse 1.8s infinite alternate;
-}
-
-.mic-prompt-banner.hidden {
-    display: none !important;
+    min-height: 48px;
 }
 
 /* CONTENEDOR PRINCIPAL */
@@ -187,139 +195,230 @@ body.emergency-body {
     flex-direction: column;
     height: 100%;
     width: 100%;
-    max-width: 600px;
+    max-width: 640px;
     margin: 0 auto;
     position: relative;
     padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* CABECERA TÁCTICA */
+/* CABECERA TÁCTICA ACCESIBLE EN 2 FILAS CLARAS */
 .tactical-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #060b07;
+    border-bottom: 2px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.header-row-top,
+.header-row-bottom {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
-    background: #050805;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.header-left, .header-right {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .mesh-node-badge {
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: #0d1a10;
-    border: 1px solid var(--rescue-green);
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 0.72rem;
-    font-weight: 700;
+    gap: 8px;
+    background: #0d1f11;
+    border: 2px solid var(--rescue-green);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.88rem;
+    font-weight: 800;
     color: var(--rescue-green);
+    min-height: 40px;
 }
 
 .mesh-dot {
-    width: 7px;
-    height: 7px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     background: var(--rescue-green);
+    box-shadow: 0 0 6px var(--rescue-green);
 }
 
 .callsign-chip {
     display: flex;
     align-items: center;
-    gap: 4px;
-    background: #141a15;
-    border: 1px solid #28362b;
-    border-radius: 4px;
-    padding: 2px 6px;
-    color: #a0c2a5;
-    font-size: 0.75rem;
+    gap: 6px;
+    background: #121c14;
+    border: 2px solid #2e4a33;
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: var(--rescue-green);
+    font-size: 0.9rem;
+    min-height: 40px;
 }
 
 .callsign-chip input {
     background: transparent;
     border: none;
     color: #ffffff;
-    font-weight: 700;
-    font-size: 0.75rem;
-    width: 85px;
+    font-weight: 900;
+    font-size: 0.95rem;
+    width: 120px;
     outline: none;
     text-transform: uppercase;
 }
 
 .telemetry-chip {
-    font-size: 0.72rem;
-    color: #88aa8d;
-    background: #0f1410;
-    border: 1px solid #1a241b;
-    padding: 4px 6px;
-    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #b8d8bc;
+    background: #0f1810;
+    border: 2px solid #233826;
+    padding: 6px 10px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    min-height: 40px;
+}
+
+.p2p-chip {
+    cursor: pointer;
+    color: var(--rescue-cyan);
+    border-color: #164e59;
+    background: #07191e;
+}
+
+.p2p-chip.active {
+    background: #062b14;
+    border-color: var(--rescue-green);
+    color: var(--rescue-green);
+}
+
+.pwa-install-btn {
+    background: #0c2612;
+    border: 2px solid var(--rescue-green);
+    color: var(--rescue-green);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
 }
 
 .icon-tactical-btn {
-    background: #121713;
-    border: 1px solid #29382b;
+    background: #121c14;
+    border: 2px solid #2e4a33;
     color: #ffffff;
-    padding: 6px 9px;
-    border-radius: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 1rem;
+    min-height: 40px;
+    min-width: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    text-decoration: none;
 }
 
-.icon-tactical-btn:active {
-    background: var(--rescue-green);
-    color: #000;
-}
-
-.radio-switch-btn {
-    border-color: var(--rescue-amber);
-    color: var(--rescue-amber);
-}
-
-/* NAVEGACIÓN PRINCIPAL */
+/* NAVEGACIÓN PRINCIPAL ACCESIBLE (CUADRÍCULA 3x2 CON BOTONES GRANDES) */
 .tactical-nav {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    background: #030503;
-    border-bottom: 1px solid #142116;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 6px 8px;
+    background: #040804;
+    border-bottom: 2px solid #192b1c;
+    flex-shrink: 0;
 }
 
 .nav-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    padding: 10px 4px;
-    font-size: 0.72rem;
-    font-weight: 800;
+    background: #0c140d;
+    border: 2px solid #1c2e1f;
+    border-radius: 8px;
+    color: #b5ceb8;
+    padding: 8px 6px;
+    min-height: 48px;
+    font-size: 0.85rem;
+    font-weight: 900;
     cursor: pointer;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 4px;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s;
 }
 
 .nav-btn i {
-    font-size: 1rem;
+    font-size: 1.1rem;
 }
 
 .nav-btn.active {
-    color: var(--rescue-green);
+    color: #000000;
+    background: var(--rescue-green);
+    border-color: #ffffff;
+    box-shadow: 0 0 12px rgba(0, 255, 102, 0.4);
+}
+
+/* BARRA GLOBAL FLOTANTE DE AUDIO Y PTT (PARA HABLAR Y ESCUCHAR EN CUALQUIER PANTALLA) */
+.global-mini-ptt-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: #081a0c;
     border-bottom: 2px solid var(--rescue-green);
-    background: rgba(0, 255, 102, 0.05);
+    padding: 8px 12px;
+    flex-shrink: 0;
+}
+
+.mini-ptt-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    font-weight: 900;
+    color: var(--rescue-green);
+}
+
+.mini-ptt-btn {
+    background: #132e18;
+    color: #ffffff;
+    border: 2px solid var(--rescue-green);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-height: 46px;
+    font-size: 0.9rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mini-ptt-btn.transmitting,
+.mini-ptt-btn:active {
+    background: var(--rescue-red);
+    border-color: #ffffff;
+    color: #ffffff;
+}
+
+.mini-sos-stop-btn {
+    background: #ff0000;
+    color: #ffff00;
+    border: 2px solid #ffff00;
+    border-radius: 8px;
+    padding: 10px 12px;
+    min-height: 46px;
+    font-size: 0.85rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* PANELES DE OPERACIONES */
@@ -332,101 +431,126 @@ body.emergency-body {
     gap: 12px;
 }
 
-.op-panel.hidden {
-    display: none !important;
-}
-
 /* ==========================================================================
-   SECCIÓN 1: INTERCOMUNICADOR VOZ HD
+   SECCIÓN 1: INTERCOMUNICADOR VOZ HD Y CONTROLES GRANDES CENTRADOS
    ========================================================================== */
 
 .voice-status-card {
-    background: #080f09;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 10px 12px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
 }
 
 .voice-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.78rem;
-    color: var(--text-muted);
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.voice-mode-badge {
+    font-size: 0.95rem;
+    font-weight: 900;
+    color: var(--rescue-green);
 }
 
 .tactical-select {
-    background: #0f1a11;
-    color: var(--rescue-green);
-    border: 1px solid #1e3623;
-    padding: 5px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 700;
+    flex: 1;
+    min-height: 46px;
+    background: #0f1e12;
+    color: #ffffff;
+    border: 2px solid var(--rescue-green);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 800;
     outline: none;
 }
 
 .tx-rx-status {
-    background: #040804;
-    border: 1px solid #1a2c1d;
-    padding: 8px 12px;
-    border-radius: 6px;
+    background: #050c06;
+    border: 2px solid #1f3823;
+    padding: 10px 14px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    font-weight: 800;
-    color: #4cd678;
-    letter-spacing: 0.5px;
+    justify-content: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 900;
+    color: var(--rescue-green);
+    text-align: center;
 }
 
 .tx-rx-status.transmitting {
-    background: #2b0404;
-    border-color: #ff3333;
-    color: #ff5555;
+    background: #380606;
+    border-color: var(--rescue-red);
+    color: #ff6666;
 }
 
 .tx-rx-status.receiving {
-    background: #041f2b;
-    border-color: #00c3ff;
-    color: #00d9ff;
+    background: #052633;
+    border-color: var(--rescue-cyan);
+    color: var(--rescue-cyan);
 }
 
-.visualizer-wrapper {
+.oscilloscope-container {
     background: #020502;
-    border: 1px solid #101c12;
-    border-radius: 4px;
+    border: 1px solid #172a19;
+    border-radius: 6px;
     overflow: hidden;
 }
 
 #waveformCanvas {
     width: 100%;
-    height: 48px;
+    height: 52px;
     display: block;
 }
 
-/* BARRA VOX */
-.vox-action-bar {
+/* CAJA DE CONTROLES DE TRANSMISIÓN */
+.transmission-controls-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex: 1;
+    width: 100%;
+}
+
+/* CONTROL MANOS LIBRES (VOX) GRANDE Y CLARO */
+.vox-quick-control {
+    width: 100%;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vox-top-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #090e0a;
-    border: 1px solid #1c2b1e;
-    border-radius: 6px;
-    padding: 8px 12px;
+    gap: 10px;
 }
 
 .tactical-toggle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     cursor: pointer;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #a4cca8;
+    font-size: 0.98rem;
+    font-weight: 900;
+    color: #ffffff;
+    min-height: 36px;
 }
 
 .tactical-toggle input {
@@ -434,81 +558,106 @@ body.emergency-body {
 }
 
 .toggle-slider {
-    width: 36px;
-    height: 20px;
-    background: #253327;
-    border-radius: 20px;
+    width: 56px;
+    height: 30px;
+    background: #253628;
+    border: 2px solid #446349;
+    border-radius: 30px;
     position: relative;
     transition: 0.2s;
+    flex-shrink: 0;
 }
 
 .toggle-slider::after {
     content: '';
     position: absolute;
-    width: 14px;
-    height: 14px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: #ffffff;
-    top: 3px;
+    top: 2px;
     left: 3px;
     transition: 0.2s;
 }
 
 .tactical-toggle input:checked + .toggle-slider {
     background: var(--rescue-green);
+    border-color: #ffffff;
 }
 
 .tactical-toggle input:checked + .toggle-slider::after {
-    transform: translateX(16px);
+    transform: translateX(24px);
+    background: #000000;
 }
 
-.vox-sens-wrapper {
+.vox-state-pill {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 900;
+    background: #1a241b;
+    color: #9ab59e;
+}
+
+.vox-state-pill.active {
+    background: var(--rescue-green);
+    color: #000000;
+}
+
+.vox-slider-container {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.9rem;
     color: var(--text-muted);
 }
 
-.vox-sens-wrapper input[type="range"] {
-    width: 70px;
+.vox-slider-container input[type="range"] {
+    flex: 1;
+    height: 28px;
     accent-color: var(--rescue-green);
 }
 
 .sens-val {
     color: var(--rescue-green);
-    font-weight: 700;
+    font-weight: 900;
+    min-width: 85px;
+    text-align: right;
 }
 
-/* BOTÓN PTT GIGANTE */
-.ptt-zone {
-    flex: 1;
+/* CONTENEDOR PERFECTAMENTE CENTRADO PARA EL BOTÓN DE HABLAR */
+.ptt-center-wrapper {
+    width: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 10px 0;
+    padding: 6px 0;
+    margin: 0 auto;
 }
 
 .big-ptt-button {
     width: 220px;
     height: 220px;
+    margin: 0 auto;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #182e1c, #0a140c);
-    border: 6px solid var(--rescue-green);
-    box-shadow: 0 0 25px rgba(0, 255, 102, 0.25);
+    background: radial-gradient(circle at 35% 35%, #19381f, #09170c);
+    border: 7px solid var(--rescue-green);
+    box-shadow: 0 0 30px rgba(0, 255, 102, 0.35);
     cursor: pointer;
     outline: none;
     display: flex;
     justify-content: center;
     align-items: center;
     text-align: center;
-    transition: all 0.15s ease-out;
+    transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.big-ptt-button:active, .big-ptt-button.transmitting {
-    background: radial-gradient(circle at 35% 35%, #5a1414, #260505);
+.big-ptt-button:active,
+.big-ptt-button.transmitting {
+    background: radial-gradient(circle at 35% 35%, #701111, #2e0404);
     border-color: var(--rescue-red);
-    box-shadow: 0 0 40px rgba(255, 42, 42, 0.7);
+    box-shadow: 0 0 45px rgba(255, 34, 34, 0.85);
     transform: scale(0.96);
 }
 
@@ -516,166 +665,152 @@ body.emergency-body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px;
     color: #ffffff;
 }
 
 .ptt-mic-icon {
-    font-size: 2.8rem;
+    font-size: 3.4rem;
     color: var(--rescue-green);
 }
 
 .big-ptt-button.transmitting .ptt-mic-icon {
-    color: var(--rescue-red);
+    color: #ffffff;
     animation: pulse 0.5s infinite alternate;
 }
 
 .ptt-main-label {
-    font-size: 1rem;
+    font-size: 1.15rem;
     font-weight: 900;
     letter-spacing: 0.5px;
     line-height: 1.2;
 }
 
 .ptt-sub-label {
-    font-size: 0.68rem;
-    color: #7d9c82;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #a8d4b0;
 }
 
-/* BOTÓN DISPARADOR SOS */
-.emergency-sos-bar {
-    margin-top: auto;
-}
-
-.big-sos-trigger-btn {
+/* BOTÓN DE ALERTA SOS GENERAL (CON MODO APAGAR ALARMA) */
+.emergency-sos-trigger-btn {
     width: 100%;
-    background: #ff1a1a;
+    min-height: 58px;
+    background: #e60000;
     color: #ffffff;
-    border: none;
-    border-radius: 8px;
-    padding: 14px 12px;
-    font-size: 0.95rem;
+    border: 3px solid #ff9999;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 1.05rem;
     font-weight: 900;
-    letter-spacing: 0.8px;
+    letter-spacing: 0.5px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    box-shadow: 0 4px 15px rgba(255, 26, 26, 0.4);
-    transition: transform 0.1s;
+    box-shadow: 0 4px 18px rgba(255, 0, 0, 0.45);
 }
 
-.big-sos-trigger-btn:active {
-    transform: scale(0.98);
-    background: #cc0000;
+.emergency-sos-trigger-btn.alarm-active {
+    background: #ffcc00;
+    color: #000000;
+    border-color: #ffffff;
+    animation: pulse 0.6s infinite alternate;
 }
 
 /* ==========================================================================
-   SECCIÓN 2: TRIAGE RÁPIDO & CENSO
+   SECCIÓN 2: TRIAGE RÁPIDO & CENSO ACCESIBLE
    ========================================================================== */
 
 .section-banner {
-    background: #090e09;
-    border: 1px solid #1b261c;
-    border-radius: 6px;
-    padding: 8px 12px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 14px;
 }
 
 .section-banner h3 {
-    font-size: 0.88rem;
+    font-size: 1.02rem;
     color: var(--rescue-green);
-    margin-bottom: 2px;
+    margin-bottom: 4px;
 }
 
 .section-banner p {
-    font-size: 0.72rem;
+    font-size: 0.9rem;
     color: var(--text-muted);
+    line-height: 1.4;
 }
 
 .triage-selector-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: 10px;
 }
 
 .triage-btn {
-    background: #090d0a;
-    border: 2px solid #202b22;
-    border-radius: 8px;
-    padding: 12px 10px;
+    background: #0d140e;
+    border: 3px solid #253828;
+    border-radius: 12px;
+    padding: 16px 12px;
+    min-height: 95px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    justify-content: center;
+    gap: 6px;
     cursor: pointer;
     text-align: left;
     color: #ffffff;
-    transition: all 0.15s;
 }
 
 .triage-btn i {
-    font-size: 1.3rem;
+    font-size: 1.7rem;
 }
 
 .triage-btn strong {
-    font-size: 0.82rem;
+    font-size: 1rem;
 }
 
 .triage-btn small {
-    font-size: 0.65rem;
+    font-size: 0.82rem;
     color: var(--text-muted);
 }
 
-.triage-btn.triage-ok {
-    border-color: #17381d;
-}
+.triage-btn.triage-ok i { color: var(--rescue-green); }
 .triage-btn.triage-ok.active {
     border-color: var(--rescue-green);
-    background: #072911;
-    box-shadow: 0 0 12px rgba(0, 255, 102, 0.25);
+    background: #093014;
 }
-.triage-btn.triage-ok i { color: var(--rescue-green); }
 
-.triage-btn.triage-searching {
-    border-color: #3b2c11;
-}
+.triage-btn.triage-searching i { color: var(--rescue-amber); }
 .triage-btn.triage-searching.active {
     border-color: var(--rescue-amber);
-    background: #291c05;
-    box-shadow: 0 0 12px rgba(255, 170, 0, 0.25);
+    background: #332205;
 }
-.triage-btn.triage-searching i { color: var(--rescue-amber); }
 
-.triage-btn.triage-injured {
-    border-color: #3d1c15;
-}
+.triage-btn.triage-injured i { color: #ff7700; }
 .triage-btn.triage-injured.active {
-    border-color: #ff6a00;
-    background: #2b0e07;
-    box-shadow: 0 0 12px rgba(255, 106, 0, 0.25);
+    border-color: #ff7700;
+    background: #361406;
 }
-.triage-btn.triage-injured i { color: #ff6a00; }
 
-.triage-btn.triage-trapped {
-    border-color: #401010;
-}
+.triage-btn.triage-trapped i { color: var(--rescue-red); }
 .triage-btn.triage-trapped.active {
     border-color: var(--rescue-red);
-    background: #330707;
-    box-shadow: 0 0 12px rgba(255, 42, 42, 0.35);
+    background: #3d0808;
 }
-.triage-btn.triage-trapped i { color: var(--rescue-red); }
 
-/* CENSO */
 .census-container {
-    background: #060a06;
-    border: 1px solid #142116;
-    border-radius: 8px;
-    padding: 10px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     flex: 1;
 }
 
@@ -683,347 +818,112 @@ body.emergency-body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #a4cca8;
+    font-size: 0.95rem;
+    font-weight: 900;
+    color: #ffffff;
 }
 
 .peers-badge {
-    background: #0d1a10;
-    border: 1px solid var(--rescue-green);
+    background: #0d2412;
+    border: 2px solid var(--rescue-green);
     color: var(--rescue-green);
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 0.7rem;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.88rem;
+    font-weight: 900;
 }
 
 .census-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    overflow-y: auto;
-    max-height: 220px;
+    gap: 8px;
 }
 
 .census-card {
-    background: #0c120d;
-    border-left: 4px solid var(--rescue-green);
-    border-top: 1px solid #19261a;
-    border-right: 1px solid #19261a;
-    border-bottom: 1px solid #19261a;
-    border-radius: 4px;
-    padding: 8px 10px;
+    background: #101912;
+    border-left: 6px solid var(--rescue-green);
+    border-top: 1px solid #243827;
+    border-right: 1px solid #243827;
+    border-bottom: 1px solid #243827;
+    border-radius: 8px;
+    padding: 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.78rem;
+    gap: 8px;
 }
 
-.census-card.status-trapped {
-    border-left-color: var(--rescue-red);
-    background: #170707;
-}
-
-.census-card.status-injured {
-    border-left-color: #ff6a00;
-    background: #170c06;
-}
-
-.census-card.status-searching {
-    border-left-color: var(--rescue-amber);
-    background: #171206;
-}
+.census-card.status-trapped { border-left-color: var(--rescue-red); background: #210909; }
+.census-card.status-injured { border-left-color: #ff7700; background: #211007; }
+.census-card.status-searching { border-left-color: var(--rescue-amber); background: #1f1808; }
 
 .card-main strong {
-    font-size: 0.85rem;
+    font-size: 1rem;
     display: block;
+    margin-bottom: 2px;
 }
 
 .card-main small {
+    font-size: 0.85rem;
     color: var(--text-muted);
 }
 
 .card-badge {
-    padding: 3px 6px;
-    border-radius: 3px;
-    font-size: 0.68rem;
-    font-weight: 800;
-}
-
-/* ==========================================================================
-   SECCIÓN 3: BALIZA & SENSOR DE IMPACTOS
-   ========================================================================== */
-
-.rescue-tool-card {
-    background: #090f0a;
-    border: 1px solid #1a291c;
-    border-radius: 8px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.tool-card-title {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-}
-
-.tool-card-title i {
-    font-size: 1.5rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 900;
+    background: #19291c;
     color: var(--rescue-green);
-    margin-top: 2px;
-}
-
-.tool-card-title strong {
-    font-size: 0.88rem;
-    display: block;
-    color: #ffffff;
-}
-
-.tool-card-title p {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    line-height: 1.3;
-}
-
-.tool-card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.sensor-hits-display {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #040804;
-    border: 1px solid #152417;
-    padding: 8px 12px;
-    border-radius: 6px;
-}
-
-.hit-dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #1a2e1d;
-    border: 2px solid #28442c;
-    transition: all 0.2s;
-}
-
-.hit-dot.active {
-    background: var(--rescue-red);
-    border-color: #ffffff;
-    box-shadow: 0 0 10px var(--rescue-red);
-}
-
-.sensor-hint {
-    font-size: 0.72rem;
-    color: #6a8c6e;
-    margin-left: 6px;
-}
-
-.beacon-buttons-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-}
-
-.beacon-toggle-btn {
-    background: #0e1710;
-    border: 2px solid #283d2c;
-    border-radius: 8px;
-    padding: 14px 10px;
-    color: #ffffff;
-    font-weight: 800;
-    font-size: 0.78rem;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    text-align: center;
-    transition: all 0.2s;
-}
-
-.beacon-toggle-btn i {
-    font-size: 1.4rem;
-    color: var(--rescue-amber);
-}
-
-.beacon-toggle-btn.active {
-    background: #2b1803;
-    border-color: var(--rescue-amber);
-    box-shadow: 0 0 15px rgba(255, 170, 0, 0.4);
-}
-
-.beacon-toggle-btn#audioBeaconBtn.active {
-    background: #2b0505;
-    border-color: var(--rescue-red);
-    box-shadow: 0 0 15px rgba(255, 42, 42, 0.5);
 }
 
 /* ==========================================================================
-   SECCIÓN 4: TEXTO & TEXT-TO-SPEECH
+   SECCIÓN 3: BRÚJULA Y RADAR GPS INTUITIVO
    ========================================================================== */
 
-.tts-header-bar {
-    background: #090f0a;
-    border: 1px solid #1b261c;
-    border-radius: 6px;
-    padding: 8px 12px;
+.radar-actions-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.quick-emergency-messages {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-}
-
-.quick-sos-msg {
-    background: #0f1711;
-    border: 1px solid #263829;
-    border-radius: 6px;
-    padding: 8px 6px;
-    color: #c0dec4;
-    font-size: 0.72rem;
-    font-weight: 700;
+.radar-action-btn {
+    width: 100%;
+    min-height: 52px;
+    background: #0e2e15;
+    border: 2px solid var(--rescue-green);
+    color: var(--rescue-green);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.98rem;
+    font-weight: 900;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
     justify-content: center;
-    text-align: center;
+    gap: 10px;
 }
 
-.quick-sos-msg:active {
-    background: var(--rescue-green);
-    color: #000;
-}
-
-.emergency-chat-history {
-    flex: 1;
-    min-height: 180px;
-    background: #040804;
-    border: 1px solid #142116;
-    border-radius: 6px;
-    padding: 8px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.chat-bubble {
-    background: #0b120c;
-    border: 1px solid #1a261c;
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 0.78rem;
-}
-
-.chat-bubble.me {
-    background: #0c1a10;
-    border-color: #1f3824;
-    align-self: flex-end;
-}
-
-.chat-bubble .msg-head {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.68rem;
-    color: var(--rescue-green);
-    margin-bottom: 2px;
-}
-
-.emergency-input-bar {
-    display: flex;
-    gap: 6px;
-}
-
-.emergency-input-bar input {
-    flex: 1;
-    background: #080d09;
-    border: 1px solid #1f3322;
-    border-radius: 6px;
-    padding: 10px 12px;
+.radar-action-btn.secondary {
+    background: #101b12;
+    border-color: #36593c;
     color: #ffffff;
-    font-size: 0.85rem;
-    outline: none;
 }
 
-.btn-send {
-    background: var(--rescue-green);
-    color: #000000;
-    border: none;
-    border-radius: 6px;
-    padding: 0 16px;
-    font-size: 1rem;
-    cursor: pointer;
-}
-
-/* ==========================================================================
-   COMPONENTES NUEVOS V35: PWA, RADAR GPS, CAJA NEGRA & WEBRTC P2P
-   ========================================================================== */
-
-/* P2P MESH TELEMETRY CHIP */
-.p2p-chip {
-    color: #00e5ff;
-    border-color: #004455;
-    background: #001820;
-}
-
-.p2p-chip.active {
-    color: #00ffaa;
-    border-color: #007744;
-    background: #002414;
-    box-shadow: 0 0 8px rgba(0, 255, 170, 0.25);
-}
-
-/* BOTÓN DE INSTALACIÓN PWA */
-.pwa-install-btn {
-    background: #0d2912;
-    border: 1px solid var(--rescue-green);
-    color: var(--rescue-green);
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.pwa-install-btn:active {
-    background: var(--rescue-green);
-    color: #000000;
-}
-
-/* ==========================================================================
-   RADAR TÁCTICO & BRÚJULA VECTORIAL (TAB RADAR)
-   ========================================================================== */
 .radar-target-bar {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    background: #050a06;
-    border: 1px solid #142618;
-    border-radius: 6px;
-    padding: 8px 10px;
-    margin-bottom: 12px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 12px;
 }
 
 .radar-target-bar label {
-    font-size: 0.75rem;
+    font-size: 0.92rem;
+    font-weight: 900;
     color: var(--rescue-green);
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    gap: 6px;
 }
 
 .radar-display-container {
@@ -1031,415 +931,580 @@ body.emergency-body {
     flex-direction: column;
     align-items: center;
     gap: 14px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 12px;
 }
 
-/* DISCO DE BRÚJULA RADAR TÁCTICO */
+.compass-live-pill {
+    background: #0f2414;
+    border: 2px solid var(--rescue-green);
+    border-radius: 24px;
+    padding: 8px 18px;
+    font-size: 0.95rem;
+    color: #ffffff;
+}
+
+.compass-live-pill strong {
+    color: var(--rescue-green);
+    font-size: 1.05rem;
+}
+
 .radar-compass-disc {
-    position: relative;
     width: 220px;
     height: 220px;
     border-radius: 50%;
-    background: radial-gradient(circle, #021207 0%, #000000 70%);
-    border: 3px solid #17381f;
-    box-shadow: 0 0 24px rgba(0, 255, 102, 0.15), inset 0 0 20px rgba(0, 255, 102, 0.08);
+    background: radial-gradient(circle, #0d2111 0%, #040a05 75%);
+    border: 4px solid #285430;
+    position: relative;
     display: flex;
-    align-items: center;
     justify-content: center;
-    margin: 6px 0;
+    align-items: center;
+    box-shadow: inset 0 0 25px rgba(0, 255, 102, 0.18);
 }
 
-/* Anillos concéntricos de rango en el radar */
-.radar-compass-disc::before {
-    content: '';
-    position: absolute;
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    border: 1px dashed #1c4225;
-}
-
-.radar-compass-disc::after {
-    content: '';
-    position: absolute;
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    border: 1px solid #14331c;
-}
-
-/* Puntos cardinales */
-.compass-cardinal {
-    position: absolute;
-    font-weight: 900;
-    font-size: 0.85rem;
-    color: #4a7552;
-}
-
-.compass-n { top: 8px; color: #ff3333; text-shadow: 0 0 6px rgba(255, 51, 51, 0.6); }
-.compass-e { right: 10px; }
-.compass-s { bottom: 8px; }
-.compass-w { left: 10px; }
-
-/* Contenedor giratorio de la flecha del vector */
-.radar-arrow-wrapper {
+.compass-rose-ring {
     position: absolute;
     width: 100%;
     height: 100%;
     top: 0;
     left: 0;
-    pointer-events: none;
-    transition: transform 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+    transition: transform 0.15s ease-out;
 }
 
-/* Flecha de rescate de alta visibilidad */
-.radar-arrow {
+.compass-cardinal {
     position: absolute;
-    top: 14px;
+    font-weight: 900;
+    font-size: 1.1rem;
+    color: #a8c4ab;
+}
+
+.compass-n {
+    top: 8px;
     left: 50%;
     transform: translateX(-50%);
+    color: var(--rescue-red);
+    font-size: 1.25rem;
+}
+
+.compass-s {
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.compass-e {
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.compass-w {
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.radar-arrow-wrapper {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 32px;
+    transition: transform 0.2s ease-out;
+}
+
+.radar-arrow {
     width: 0;
     height: 0;
-    border-left: 12px solid transparent;
-    border-right: 12px solid transparent;
-    border-bottom: 34px solid #00ff66;
-    filter: drop-shadow(0 0 10px #00ff66);
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-bottom: 48px solid var(--rescue-green);
+    filter: drop-shadow(0 0 10px var(--rescue-green));
 }
 
 .radar-reticle {
-    position: absolute;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: #041006;
-    border: 1px solid #00ff66;
+    background: #0a170c;
+    border: 2px solid var(--rescue-green);
     display: flex;
-    align-items: center;
     justify-content: center;
-    font-size: 0.85rem;
-    color: #00ff66;
+    align-items: center;
+    color: var(--rescue-green);
+    font-size: 1.2rem;
     z-index: 2;
 }
 
-/* TARJETA DE DATOS MÉTRICOS DEL RADAR */
 .radar-metrics-card {
     width: 100%;
-    background: #050a06;
-    border: 1px solid #16291a;
-    border-radius: 6px;
-    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    background: #060b07;
+    border: 1px solid #1e3322;
+    border-radius: 10px;
+    padding: 12px;
 }
 
 .metric-row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    font-size: 0.78rem;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #121f14;
+    padding-bottom: 6px;
 }
 
 .metric-label {
-    color: #7a9c80;
-    font-weight: 700;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: var(--text-muted);
 }
 
 .metric-value {
-    color: #ffffff;
-    font-size: 0.95rem;
+    font-size: 1.15rem;
     font-weight: 900;
+    color: #ffffff;
 }
 
 .metric-value.highlight {
-    color: #00ff66;
+    color: var(--rescue-green);
     font-size: 1.3rem;
-    text-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
 }
 
 .metric-sub {
-    color: #999999;
-    font-size: 0.72rem;
+    font-size: 0.85rem;
+    color: #d0e8d3;
     font-family: monospace;
 }
 
-/* ACCIONES DEL RADAR */
-.radar-actions-row {
+/* ==========================================================================
+   SECCIÓN 4: BALIZAS Y DETECTOR DE 3 GOLPES
+   ========================================================================== */
+
+.rescue-tool-card {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px;
     display: flex;
-    gap: 8px;
-    width: 100%;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.radar-action-btn {
-    flex: 1;
-    background: #08210e;
-    border: 1px solid var(--rescue-green);
+.tool-card-title {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.tool-card-title i {
+    font-size: 1.8rem;
     color: var(--rescue-green);
-    padding: 10px 8px;
-    border-radius: 6px;
-    font-weight: 800;
-    font-size: 0.75rem;
+}
+
+.tool-card-title strong {
+    font-size: 1.02rem;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.tool-card-title p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+}
+
+.beacon-buttons-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.beacon-toggle-btn {
+    width: 100%;
+    min-height: 56px;
+    background: #122415;
+    border: 2px solid var(--rescue-green);
+    color: #ffffff;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 900;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 10px;
 }
 
-.radar-action-btn:active {
+.beacon-toggle-btn.active {
+    background: var(--rescue-red);
+    border-color: #ffff00;
+    color: #ffffff;
+    animation: pulse 0.6s infinite alternate;
+}
+
+.sensor-toggle-bar {
+    background: #070d08;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #1d3020;
+}
+
+.impact-dots-container {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    padding: 8px 0;
+}
+
+.hit-dot {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #101a12;
+    border: 3px solid #2b422e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: #6c8c70;
+}
+
+.hit-dot.active {
+    background: var(--rescue-amber);
+    border-color: #ffffff;
+    color: #000000;
+    box-shadow: 0 0 16px var(--rescue-amber);
+}
+
+.sensor-status-hint {
+    text-align: center;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+
+/* ==========================================================================
+   SECCIÓN 5: MENSAJES CON DICTADO POR VOZ ACCESIBLE
+   ========================================================================== */
+
+.tts-header-bar {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+
+.voice-dictate-big-btn {
+    width: 100%;
+    min-height: 58px;
+    background: #0d2e14;
+    border: 3px solid var(--rescue-green);
+    color: var(--rescue-green);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: 0 4px 14px rgba(0, 255, 102, 0.25);
+}
+
+.voice-dictate-big-btn i {
+    font-size: 1.5rem;
+}
+
+.voice-dictate-big-btn.listening {
+    background: var(--rescue-red);
+    border-color: #ffffff;
+    color: #ffffff;
+    animation: pulse 0.6s infinite alternate;
+}
+
+.quick-emergency-messages {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.quick-sos-msg {
+    min-height: 48px;
+    background: #101c12;
+    border: 2px solid #28422c;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.88rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+}
+
+.quick-sos-msg i {
+    color: var(--rescue-green);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.quick-sos-msg:active {
     background: var(--rescue-green);
     color: #000000;
 }
 
-.radar-action-btn.secondary {
-    background: #111a13;
-    border-color: #244229;
-    color: #88aa8d;
+.emergency-chat-history {
+    flex: 1;
+    min-height: 150px;
+    background: #050906;
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.chat-bubble {
+    background: #111f14;
+    border-left: 4px solid var(--rescue-cyan);
+    padding: 10px 12px;
+    border-radius: 8px;
+}
+
+.chat-bubble.me {
+    background: #0d2612;
+    border-left-color: var(--rescue-green);
+}
+
+.msg-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.chat-bubble p {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #ffffff;
+    word-break: break-word;
+}
+
+.emergency-input-bar {
+    display: flex;
+    gap: 8px;
+}
+
+.emergency-input-bar input {
+    flex: 1;
+    min-height: 50px;
+    background: #0c170e;
+    border: 2px solid #2b4a30;
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #ffffff;
+    font-size: 1rem;
+    outline: none;
+}
+
+.btn-send {
+    min-height: 50px;
+    background: var(--rescue-green);
+    color: #000000;
+    border: none;
+    border-radius: 10px;
+    padding: 0 18px;
+    font-size: 0.95rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 /* ==========================================================================
-   CAJA NEGRA / BITÁCORA FORENSE OFFLINE (TAB BLACKBOX)
+   SECCIÓN 6: BITÁCORA / CAJA NEGRA
    ========================================================================== */
+
 .blackbox-stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 8px;
 }
 
 .blackbox-stat-card {
-    background: #050a06;
-    border: 1px solid #182e1c;
-    border-radius: 6px;
-    padding: 8px 6px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 8px;
     text-align: center;
     display: flex;
     flex-direction: column;
-}
-
-.blackbox-stat-card.danger {
-    border-color: #661111;
-    background: #150505;
-}
-
-.blackbox-stat-card.warning {
-    border-color: #664400;
-    background: #150f02;
+    gap: 4px;
 }
 
 .stat-number {
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     font-weight: 900;
     color: var(--rescue-green);
 }
 
-.blackbox-stat-card.danger .stat-number { color: #ff3333; }
-.blackbox-stat-card.warning .stat-number { color: #ffaa00; }
+.blackbox-stat-card.danger .stat-number { color: var(--rescue-red); }
+.blackbox-stat-card.warning .stat-number { color: var(--rescue-amber); }
 
 .stat-title {
-    font-size: 0.62rem;
-    color: #7a9c80;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    margin-top: 2px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--text-muted);
 }
 
 .blackbox-actions-bar {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
 }
 
 .bb-btn {
-    flex: 1;
-    background: #0a180e;
-    border: 1px solid #1f3d24;
-    color: #c0dec4;
-    padding: 8px 6px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 800;
+    min-height: 48px;
+    background: #122115;
+    border: 2px solid #2d4c32;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    font-weight: 900;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-}
-
-.bb-btn:active {
-    background: var(--rescue-green);
-    color: #000;
-}
-
-.bb-btn.danger {
-    border-color: #662222;
-    color: #ff7777;
-}
-
-.bb-btn.danger:active {
-    background: #ff3333;
-    color: #fff;
-}
-
-/* LÍNEA TEMPORAL DE BITÁCORA */
-.blackbox-timeline {
-    flex: 1;
-    min-height: 240px;
-    max-height: 380px;
-    overflow-y: auto;
-    background: #040805;
-    border: 1px solid #142618;
-    border-radius: 6px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
     gap: 6px;
 }
 
-.bb-empty-notice {
-    text-align: center;
-    color: #55775c;
-    font-size: 0.8rem;
-    padding: 30px 10px;
+.bb-btn.danger {
+    border-color: #661a1a;
+    color: #ff7777;
+}
+
+.blackbox-timeline {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
 }
 
 .bb-event-card {
-    background: #08120a;
-    border-left: 4px solid var(--rescue-green);
-    border-radius: 4px;
-    padding: 6px 8px;
-    font-size: 0.75rem;
+    background: #0d160f;
+    border-left: 5px solid var(--rescue-green);
+    border-radius: 8px;
+    padding: 10px 12px;
 }
 
-.bb-event-card.sos {
-    background: #1a0808;
-    border-left-color: #ff2a2a;
-}
-
-.bb-event-card.trapped {
-    background: #1a0808;
-    border-left-color: #ff0000;
-}
-
-.bb-event-card.injured {
-    background: #1c1404;
-    border-left-color: #ffaa00;
-}
-
-.bb-event-card.mesh {
-    background: #06141a;
-    border-left-color: #00e5ff;
-}
+.bb-event-card.sos { border-left-color: var(--rescue-red); background: #210808; }
 
 .bb-card-head {
     display: flex;
     justify-content: space-between;
-    font-size: 0.68rem;
-    color: #7a9c80;
-    margin-bottom: 2px;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
 }
 
 .bb-card-body {
-    color: #e0eee2;
+    font-size: 0.92rem;
+    color: #d8ebd9;
 }
 
 .bb-card-coords {
-    font-size: 0.65rem;
-    color: #99bb9e;
-    margin-top: 3px;
-    font-family: monospace;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    color: var(--rescue-cyan);
 }
 
-/* ==========================================================================
-   MODAL TÁCTICO UNIVERSAL (GUÍA INSTALACIÓN IOS)
-   ========================================================================== */
+.bb-empty-notice {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+/* MODALES TÁCTICOS */
 .tactical-modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    height: 100dvh;
-    background: rgba(0, 0, 0, 0.88);
-    backdrop-filter: blur(4px);
-    z-index: 99999;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 20000;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     padding: 16px;
-}
-
-.tactical-modal.hidden {
-    display: none !important;
 }
 
 .modal-card {
-    background: #0b140d;
-    border: 2px solid var(--rescue-green);
-    border-radius: 8px;
     width: 100%;
-    max-width: 360px;
-    padding: 16px;
-    box-shadow: 0 0 30px rgba(0, 255, 102, 0.2);
+    max-width: 440px;
+    background: #0a140c;
+    border: 2px solid var(--rescue-green);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #1f3823;
-    padding-bottom: 8px;
-}
-
-.modal-header h3 {
-    margin: 0;
-    font-size: 0.95rem;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    color: var(--rescue-green);
 }
 
 .modal-close {
-    background: none;
+    background: transparent;
     border: none;
-    color: #88aa8d;
-    font-size: 1.4rem;
+    color: #ffffff;
+    font-size: 1.8rem;
     cursor: pointer;
-    line-height: 1;
-}
-
-.modal-body {
-    font-size: 0.82rem;
-    color: #ccdccc;
-    line-height: 1.4;
-    margin-bottom: 14px;
 }
 
 .ios-install-steps {
-    margin: 10px 0;
     padding-left: 20px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-}
-
-.ios-install-steps li {
-    font-size: 0.8rem;
-}
-
-/* ANIMACIONES */
-@keyframes alert-flash {
-    0% { background: #ff0000; }
-    100% { background: #880000; }
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 0.95rem;
+    line-height: 1.4;
 }
 
 @keyframes pulse {
-    0% { transform: scale(1); }
-    100% { transform: scale(1.15); }
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0.75; transform: scale(0.97); }
 }
 
 @keyframes blink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.2; }
+    50% { opacity: 0.25; }
+}
+
+@keyframes alert-flash {
+    0% { background-color: #d90000; }
+    100% { background-color: #8a0000; }
 }

@@ -1,9 +1,9 @@
-const CACHE_NAME = 'radio-rescate-v36';
+const CACHE_NAME = 'radio-rescate-v37';
 const ASSETS_TO_CACHE = [
   './',
   './emergency.html',
-  './emergency.css?v=36',
-  './emergency-app.js?v=36',
+  './emergency.css?v=37',
+  './emergency-app.js?v=37',
   './manifest-emergency.json',
   './index.html',
   './styles.css?v=29',
@@ -36,26 +36,25 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  // Estrategia: Red primero (para actualizar al instante si hay señal) y Caché instantánea si no hay internet
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
           if (event.request.mode === 'navigate') {
             return caches.match('./emergency.html');
           }
         });
-    })
+      })
   );
 });

@@ -1,15 +1,15 @@
 /* ==========================================================================
-   MOTOR DE MISIÓN CRÍTICA DESCENTRALIZADO: S.O.S. RESCATE (v36)
+   MOTOR DE MISIÓN CRÍTICA DESCENTRALIZADO: S.O.S. RESCATE (v37)
    100% Serverless P2P (GitHub Pages / PWA Offline) + WebRTC Directo + Auto-Mesh
-   Audio HD Fullband | Zero-Touch VOX | Detector de Escombros | Radar GPS | Caja Negra
+   Audio Continuo Multisección | VOX Sin Bloqueo | Alarma SOS Apagable | Dictado por Voz | Brújula Viva
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. REGISTRO DE SERVICE WORKER PARA CACHÉ 100% OFFLINE ---
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').then(() => {
-            console.log('[PWA] Service Worker v36 registrado para operación 100% sin internet.');
+        navigator.serviceWorker.register('./sw.js?v=37').then(() => {
+            console.log('[PWA] Service Worker v37 registrado para operación 100% sin internet.');
         }).catch(err => console.warn('[PWA] Advertencia SW:', err));
     }
 
@@ -59,6 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const silenceSosAlarmBtn = document.getElementById('silenceSosAlarmBtn');
     const micPromptBanner = document.getElementById('micPromptBanner');
 
+    // Barra Global Mini-PTT (Para hablar y escuchar desde cualquier pantalla)
+    const globalMiniPttBar = document.getElementById('globalMiniPttBar');
+    const miniStatusLabel = document.getElementById('miniStatusLabel');
+    const globalMiniPttBtn = document.getElementById('globalMiniPttBtn');
+    const globalSilenceSosBtn = document.getElementById('globalSilenceSosBtn');
+
     const navButtons = document.querySelectorAll('.nav-btn');
     const opPanels = document.querySelectorAll('.op-panel');
 
@@ -71,11 +77,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const waveCtx = waveformCanvas ? waveformCanvas.getContext('2d') : null;
 
     const voxHandsFreeToggle = document.getElementById('voxHandsFreeToggle');
+    const voxStateBadge = document.getElementById('voxStateBadge');
     const voxSensitivity = document.getElementById('voxSensitivity');
     const voxSensLabel = document.getElementById('voxSensLabel');
     const emergencyPttBtn = document.getElementById('emergencyPttBtn');
     const pttMainLabel = document.getElementById('pttMainLabel');
+    const pttSubLabel = document.getElementById('pttSubLabel');
     const triggerEmergencySosBtn = document.getElementById('triggerEmergencySosBtn');
+    const sosBtnIcon = document.getElementById('sosBtnIcon');
+    const sosBtnText = document.getElementById('sosBtnText');
 
     // Panel Triage & Censo
     const triageButtons = document.querySelectorAll('.triage-btn');
@@ -84,6 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Panel Radar Táctico & Brújula
     const radarTargetSelect = document.getElementById('radarTargetSelect');
+    const compassRoseRing = document.getElementById('compassRoseRing');
+    const myCompassHeadingText = document.getElementById('myCompassHeadingText');
     const radarArrowWrapper = document.getElementById('radarArrowWrapper');
     const radarDistanceValue = document.getElementById('radarDistanceValue');
     const radarBearingValue = document.getElementById('radarBearingValue');
@@ -103,8 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const flashStrobeBtn = document.getElementById('flashStrobeBtn');
     const flashStrobeLabel = document.getElementById('flashStrobeLabel');
 
-    // Panel Mensajes & TTS
+    // Panel Mensajes, Dictado por Voz & TTS
     const ttsAudioReadToggle = document.getElementById('ttsAudioReadToggle');
+    const dictateVoiceMsgBtn = document.getElementById('dictateVoiceMsgBtn');
+    const dictateVoiceMsgLabel = document.getElementById('dictateVoiceMsgLabel');
     const quickSosMessages = document.querySelectorAll('.quick-sos-msg');
     const emergencyChatHistory = document.getElementById('emergencyChatHistory');
     const emergencyChatInput = document.getElementById('emergencyChatInput');
@@ -149,16 +163,19 @@ document.addEventListener('DOMContentLoaded', () => {
         emergencyCallsignInput.value = myProfile.callsign;
     }
 
-    const discoveredPeers = new Map(); // nodeId -> peerProfile
+    const discoveredPeers = new Map();
     let latestPeers = [];
     let isTransmitting = false;
+    let isManualPttHeld = false;
     let isReceiving = false;
     let rxTimeoutTimer = null;
     let isVoxActive = false;
     let isVoxTransmitting = false;
-    let isVoxRequestPending = false;
     let voxHangoverTimer = null;
+    let voxCooldownUntil = 0;
     let voxThreshold = 0.025;
+    let isSosAlarmActive = false;
+    let isDictatingSpeech = false;
 
     // --- SCREEN WAKE LOCK: EVITAR QUE LA PANTALLA SE APAGUE EN EMERGENCIAS ---
     let screenWakeLock = null;
@@ -173,8 +190,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {}
     }
 
-    // --- MOTOR WEB AUDIO NATIVO Y PIPELINE PERSISTENTE ---
+    // --- MOTOR WEB AUDIO NATIVO Y KEEP-ALIVE PARA AUDIO CONTINUO EN OTRAS PANTALLAS ---
     let audioContext = null;
+    let keepAliveNode = null;
     let micStream = null;
     let micSourceNode = null;
     let micCompressor = null;
@@ -215,7 +233,48 @@ document.addEventListener('DOMContentLoaded', () => {
         if (audioContext.state === 'suspended') {
             audioContext.resume().catch(() => {});
         }
+        ensureContinuousAudioKeepAlive(audioContext);
         return audioContext;
+    }
+
+    // Mantiene el motor de audio vivo aunque cambies de pestaña o pantalla
+    function ensureContinuousAudioKeepAlive(ctx) {
+        if (keepAliveNode || !ctx) return;
+        try {
+            const osc = ctx.createOscillator();
+            const silentGain = ctx.createGain();
+            osc.frequency.value = 1;
+            silentGain.gain.value = 0.00001;
+            osc.connect(silentGain);
+            silentGain.connect(ctx.destination);
+            osc.start();
+            keepAliveNode = osc;
+
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: 'S.O.S. RESCATE - Audio Continuo Activo',
+                    artist: myProfile.callsign,
+                    album: `Canal ${myProfile.channel}`
+                });
+            }
+        } catch (e) {}
+    }
+
+    // Tono táctico corto por WebAudio (NO usa speechSynthesis para jamás bloquear el micrófono en VOX)
+    function playTacticalBeep(freq = 880, durationMs = 90) {
+        try {
+            const ctx = getAudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (durationMs / 1000));
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + (durationMs / 1000));
+        } catch (e) {}
     }
 
     function unlockAudioAndWake() {
@@ -320,6 +379,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return rxMasterBus;
     }
 
+    function updateGlobalAudioStatusUI(stateText, mode = 'idle') {
+        if (intercomStatusLabel) intercomStatusLabel.textContent = stateText;
+        if (miniStatusLabel) miniStatusLabel.textContent = stateText;
+
+        if (intercomStatusBox) {
+            if (mode === 'tx') intercomStatusBox.className = 'tx-rx-status transmitting';
+            else if (mode === 'rx') intercomStatusBox.className = 'tx-rx-status receiving';
+            else intercomStatusBox.className = 'tx-rx-status';
+        }
+    }
+
     function playAudioChunk(chunkPayload, senderCallsign = 'PAR') {
         try {
             unlockAudioAndWake();
@@ -332,18 +402,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!isReceiving) {
                 isReceiving = true;
-                intercomStatusBox.className = 'tx-rx-status receiving';
-                intercomStatusLabel.textContent = `RECIBIENDO: ${senderCallsign}`;
-                statusPulseIcon.className = 'fa-solid fa-volume-high';
+                voxCooldownUntil = Date.now() + 900;
+                updateGlobalAudioStatusUI(`ESCUCHANDO A: ${senderCallsign}`, 'rx');
+                if (statusPulseIcon) statusPulseIcon.className = 'fa-solid fa-volume-high';
                 startVisualizer();
             }
 
             if (rxTimeoutTimer) clearTimeout(rxTimeoutTimer);
             rxTimeoutTimer = setTimeout(() => {
                 isReceiving = false;
-                intercomStatusBox.className = 'tx-rx-status';
-                intercomStatusLabel.textContent = 'LISTO - CANAL DESPEJADO';
-                statusPulseIcon.className = 'fa-solid fa-wave-square';
+                voxCooldownUntil = Date.now() + 450;
+                updateGlobalAudioStatusUI(`AUDIO ACTIVO (CH ${myProfile.channel})`, 'idle');
+                if (statusPulseIcon) statusPulseIcon.className = 'fa-solid fa-wave-square';
                 stopVisualizer();
             }, 650);
 
@@ -377,10 +447,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- PIPELINE DE MICRÓFONO PERSISTENTE ---
+    // --- PIPELINE DE MICRÓFONO PERSISTENTE (SIN BLOQUEOS EN MANOS LIBRES VOX) ---
     async function initMicPipeline() {
         if (isMicReady && micStream && micStream.active) {
-            const liveTracks = micStream.getAudioTracks().filter(t => t.readyState === 'live');
+            const liveTracks = micStream.getAudioTracks().filter(t => t.readyState === 'live' && t.enabled);
             if (liveTracks.length > 0) return true;
         }
         if (isInitializingMic) return false;
@@ -391,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ctx = getAudioContext();
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert('Tu navegador requiere HTTPS para habilitar el micrófono.');
+                alert('Tu navegador requiere conexión segura HTTPS para usar el micrófono.');
                 isInitializingMic = false;
                 return false;
             }
@@ -403,12 +473,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
-                    channelCount: 1,
-                    sampleRate: { ideal: 48000 }
+                    channelCount: 1
                 }
             });
 
             micStream.getAudioTracks().forEach(track => {
+                track.enabled = true;
                 track.onended = () => {
                     isMicReady = false;
                 };
@@ -426,6 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
             micScriptNode = ctx.createScriptProcessor(2048, 1, 1);
 
             micScriptNode.onaudioprocess = (e) => {
+                if (isDictatingSpeech) return;
                 if (!isTransmitting && !isVoxActive && (!acousticSensorToggle || !acousticSensorToggle.checked)) {
                     return;
                 }
@@ -441,43 +512,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const rms = Math.sqrt(sumSquares / inputData.length);
 
+                // 1. Evaluador de 3 golpes en escombros
                 if (acousticSensorToggle && acousticSensorToggle.checked && !isTransmitting && !isReceiving) {
                     evaluateAcousticImpacts(peak, rms);
                 }
 
-                if (isVoxActive && !isReceiving) {
+                // 2. Manos Libres (VOX) sin bloquear el botón manual ni el micrófono
+                if (isVoxActive && !isManualPttHeld && !isReceiving && Date.now() > voxCooldownUntil) {
                     if (rms > voxThreshold) {
                         if (voxHangoverTimer) {
                             clearTimeout(voxHangoverTimer);
                             voxHangoverTimer = null;
                         }
-                        if (!isTransmitting && !isVoxRequestPending) {
+                        if (!isTransmitting) {
                             isVoxTransmitting = true;
-                            startTransmitting();
+                            grantTransmitState();
                         }
-                    } else if (rms <= voxThreshold && isVoxTransmitting && isTransmitting) {
+                    } else if (isVoxTransmitting && isTransmitting) {
                         if (!voxHangoverTimer) {
                             voxHangoverTimer = setTimeout(() => {
-                                stopTransmitting();
-                            }, 850);
+                                voxHangoverTimer = null;
+                                if (isVoxTransmitting && !isManualPttHeld) {
+                                    stopTransmitting();
+                                }
+                            }, 900);
                         }
                     }
                 }
 
+                // 3. Envío de voz en tiempo real
                 if (isTransmitting) {
-                    // Sub-muestrear a 24kHz Wideband HD para máxima velocidad en WebRTC y Malla P2P
                     const targetSr = 24000;
                     const resampled = resampleFloatArray(inputData, ctx.sampleRate, targetSr);
                     const pcm16 = new Int16Array(resampled.length);
                     for (let i = 0; i < resampled.length; i++) {
-                        let sample = resampled[i] * 1.15;
+                        let sample = resampled[i] * 1.25;
                         if (sample > 0.95) sample = 0.95;
                         else if (sample < -0.95) sample = -0.95;
                         pcm16[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
                     }
 
                     const b64Audio = int16ToBase64(pcm16);
-                    const packetId = `AUD-${myNodeId}-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+                    const packetId = `AUD-${myNodeId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
                     registerMeshMsg(packetId);
 
                     const audioPacket = {
@@ -492,10 +568,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     };
 
-                    // Enviar por Malla P2P WebRTC directa + Broker Descentralizado
                     broadcastMeshPacket(audioPacket);
 
-                    // Si además hay un servidor local Socket.IO conectado:
                     if (socket && socket.connected) {
                         socket.emit('AUDIO_STREAM', {
                             sr: targetSr,
@@ -517,12 +591,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isInitializingMic = false;
 
             if (micPromptBanner) {
-                micPromptBanner.innerHTML = '<i class="fa-solid fa-circle-check"></i> MICRÓFONO HD ACTIVO Y PROTEGIDO';
+                micPromptBanner.innerHTML = '<i class="fa-solid fa-circle-check"></i> MICRÓFONO Y AUDIO CONTINUO ACTIVOS';
                 micPromptBanner.style.background = '#0a3314';
                 micPromptBanner.style.color = '#00ff66';
                 setTimeout(() => {
                     micPromptBanner.classList.add('hidden');
-                }, 2000);
+                }, 1800);
             }
             return true;
         } catch (err) {
@@ -530,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isInitializingMic = false;
             isMicReady = false;
             if (micPromptBanner) {
-                micPromptBanner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> TOCA AQUÍ PARA AUTORIZAR EL MICRÓFONO';
+                micPromptBanner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> TOCA AQUÍ PARA PERMITIR EL MICRÓFONO';
                 micPromptBanner.classList.remove('hidden');
             }
             return false;
@@ -539,29 +613,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function cleanupMicTracks() {
         if (micStream) {
-            try { micStream.getTracks().forEach(t => t.stop()); } catch(e) {}
+            try { micStream.getTracks().forEach(t => t.stop()); } catch (e) {}
             micStream = null;
         }
         if (micSourceNode) {
-            try { micSourceNode.disconnect(); } catch(e) {}
+            try { micSourceNode.disconnect(); } catch (e) {}
             micSourceNode = null;
         }
         if (micCompressor) {
-            try { micCompressor.disconnect(); } catch(e) {}
+            try { micCompressor.disconnect(); } catch (e) {}
             micCompressor = null;
         }
         if (micScriptNode) {
-            try { micScriptNode.disconnect(); } catch(e) {}
+            try { micScriptNode.disconnect(); } catch (e) {}
             micScriptNode = null;
         }
         if (micZeroGain) {
-            try { micZeroGain.disconnect(); } catch(e) {}
+            try { micZeroGain.disconnect(); } catch (e) {}
             micZeroGain = null;
         }
         isMicReady = false;
     }
 
-    // --- VISUALIZADOR OSCILOSCOPIO EFICIENTE (0% CPU EN STANDBY) ---
+    // --- VISUALIZADOR OSCILOSCOPIO ---
     function drawFlatBaseline() {
         if (!waveCtx || !waveformCanvas) return;
         waveCtx.fillStyle = '#020502';
@@ -584,8 +658,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (waveCtx && waveformCanvas) {
             waveCtx.fillStyle = '#020502';
             waveCtx.fillRect(0, 0, waveformCanvas.width, waveformCanvas.height);
-            waveCtx.lineWidth = 2;
-            waveCtx.strokeStyle = isTransmitting ? '#ff2a2a' : (isReceiving ? '#00e5ff' : '#00ff66');
+            waveCtx.lineWidth = 3;
+            waveCtx.strokeStyle = isTransmitting ? '#ff2222' : (isReceiving ? '#00e5ff' : '#00ff66');
             waveCtx.beginPath();
 
             const width = waveformCanvas.width;
@@ -595,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             waveCtx.moveTo(0, mid);
             for (let x = 0; x <= width; x += 6) {
-                const waveAmp = (isTransmitting || isReceiving) ? 14 : 4;
+                const waveAmp = (isTransmitting || isReceiving) ? 16 : 4;
                 const y = mid + Math.sin((x * 0.08) + time) * waveAmp;
                 waveCtx.lineTo(x, y);
             }
@@ -612,11 +686,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function stopVisualizer() {
-        if (visualizerAnimId) {
+        if (visualizerAnimId && !isVoxActive) {
             cancelAnimationFrame(visualizerAnimId);
             visualizerAnimId = null;
+            drawFlatBaseline();
         }
-        drawFlatBaseline();
     }
 
     function triggerIncomingWaveAnimation() {
@@ -654,11 +728,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (sensorStatusText) {
                 if (count > 0) {
-                    sensorStatusText.textContent = `¡Impacto ${count} detectado! Esperando secuencia...`;
-                    sensorStatusText.style.color = '#ffaa00';
+                    sensorStatusText.textContent = `¡Golpe ${count} de 3 detectado!`;
+                    sensorStatusText.style.color = '#ffbb00';
                 } else {
-                    sensorStatusText.textContent = 'Sensor acústico activo. Esperando 3 golpes...';
-                    sensorStatusText.style.color = '#6a8c6e';
+                    sensorStatusText.textContent = 'Esperando 3 golpes rítmicos...';
+                    sensorStatusText.style.color = '#a8c4ab';
                 }
             }
         }, 0);
@@ -666,42 +740,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function triggerAcousticSosAlert() {
         if ('vibrate' in navigator) navigator.vibrate([300, 100, 300, 100, 300]);
-        speakEmergencyMessage('Patrón de rescate detectado. Alerta S O S transmitida a la red.', true);
-
-        const sosMsg = '¡3 IMPACTOS RÍTMICOS DETECTADOS! (Posible sobreviviente bajo escombros)';
+        const sosMsg = '¡3 GOLPES RÍTMICOS DETECTADOS! (Posible sobreviviente bajo escombros)';
         emitUniversalSos(sosMsg);
         startAudioBeacon();
     }
 
-    // --- MOTOR TEXT-TO-SPEECH (LECTURA DE VOZ OFFLINE) ---
+    // --- MOTOR TEXT-TO-SPEECH SEGURO (SOLO CUANDO NO ESTÁ EN VOX ACTIVO O TRANSMITIENDO) ---
     function speakEmergencyMessage(text, isHighPriority = false) {
         if (!('speechSynthesis' in window)) return;
+        // Evitar que speechSynthesis bloquee el micrófono si el usuario está en Manos Libres (VOX) o transmitiendo
+        if ((isVoxActive || isTransmitting) && !isHighPriority) return;
         if (ttsAudioReadToggle && !ttsAudioReadToggle.checked && !isHighPriority) return;
 
         try {
+            voxCooldownUntil = Date.now() + 2500;
             if (isHighPriority) {
                 window.speechSynthesis.cancel();
             }
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'es-ES';
             utterance.rate = 1.05;
-            utterance.pitch = isHighPriority ? 1.2 : 1.0;
+            utterance.pitch = isHighPriority ? 1.15 : 1.0;
             utterance.volume = 1.0;
             window.speechSynthesis.speak(utterance);
         } catch (e) {}
     }
 
-    // --- GESTIÓN DE TRANSMISIÓN PTT INSTANTÁNEA (SERVERLESS & LOCAL) ---
+    // --- GESTIÓN DE TRANSMISIÓN PTT INSTANTÁNEA (EN PANTALLA PRINCIPAL Y BARRA GLOBAL) ---
     function grantTransmitState() {
         isTransmitting = true;
-        isVoxRequestPending = false;
-        emergencyPttBtn.classList.add('transmitting');
-        pttMainLabel.textContent = isVoxTransmitting ? 'VOX HABLANDO...' : 'TRANSMITIENDO...';
-        intercomStatusBox.className = 'tx-rx-status transmitting';
-        intercomStatusLabel.textContent = `TRANSMITIENDO EN VIVO (CH ${myProfile.channel})`;
-        statusPulseIcon.className = 'fa-solid fa-microphone-lines';
+        if (emergencyPttBtn) emergencyPttBtn.classList.add('transmitting');
+        if (globalMiniPttBtn) {
+            globalMiniPttBtn.classList.add('transmitting');
+            globalMiniPttBtn.innerHTML = '<i class="fa-solid fa-microphone-lines"></i> HABLANDO AHORA...';
+        }
+        if (pttMainLabel) {
+            pttMainLabel.textContent = isVoxTransmitting ? 'MANOS LIBRES: HABLANDO' : 'HABLANDO EN VIVO...';
+        }
+        if (pttSubLabel) {
+            pttSubLabel.textContent = isVoxTransmitting ? 'Se pausa solo al callar' : 'Suelta el botón para escuchar';
+        }
 
-        if ('vibrate' in navigator) navigator.vibrate(40);
+        updateGlobalAudioStatusUI(`TRANSMITIENDO VOZ (CH ${myProfile.channel})`, 'tx');
+        if (statusPulseIcon) statusPulseIcon.className = 'fa-solid fa-microphone-lines';
+
+        if ('vibrate' in navigator) navigator.vibrate(35);
         startVisualizer();
 
         broadcastMeshPacket({
@@ -713,39 +796,61 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function startTransmitting() {
-        if (isTransmitting || isReceiving) return;
+    async function startTransmitting(isManual = true) {
+        if (isManual) isManualPttHeld = true;
+        if (isTransmitting) return;
+
+        // Si estaba recibiendo pero el usuario presiona manualmente PTT, darle prioridad
+        if (isReceiving && isManual) {
+            isReceiving = false;
+            if (rxTimeoutTimer) clearTimeout(rxTimeoutTimer);
+        } else if (isReceiving) {
+            return;
+        }
+
         unlockAudioAndWake();
 
         if (!isMicReady) {
             const ok = await initMicPipeline();
-            if (!ok) return;
+            if (!ok) {
+                isManualPttHeld = false;
+                return;
+            }
         }
 
         if (socket && socket.connected) {
             socket.emit('REQUEST_TRANSMIT');
         } else {
-            // En modo Serverless P2P (GitHub Pages / Offline), conceder transmisión al instante (0ms)
             grantTransmitState();
         }
     }
 
     function stopTransmitting() {
+        isManualPttHeld = false;
         if (voxHangoverTimer) {
             clearTimeout(voxHangoverTimer);
             voxHangoverTimer = null;
         }
         isVoxTransmitting = false;
-        isVoxRequestPending = false;
 
         if (isTransmitting) {
             isTransmitting = false;
+            voxCooldownUntil = Date.now() + 400;
 
-            emergencyPttBtn.classList.remove('transmitting');
-            pttMainLabel.textContent = 'PRESIONA PARA HABLAR';
-            intercomStatusBox.className = 'tx-rx-status';
-            intercomStatusLabel.textContent = 'LISTO - CANAL DESPEJADO';
-            statusPulseIcon.className = 'fa-solid fa-wave-square';
+            if (emergencyPttBtn) emergencyPttBtn.classList.remove('transmitting');
+            if (globalMiniPttBtn) {
+                globalMiniPttBtn.classList.remove('transmitting');
+                globalMiniPttBtn.innerHTML = '<i class="fa-solid fa-microphone-lines"></i> MANTÉN PARA HABLAR';
+            }
+            if (pttMainLabel) {
+                pttMainLabel.textContent = isVoxActive ? 'MANOS LIBRES ACTIVO' : 'MANTÉN PARA HABLAR';
+            }
+            if (pttSubLabel) {
+                pttSubLabel.textContent = isVoxActive ? 'Habla directo al micrófono' : 'Suelta para escuchar';
+            }
+
+            updateGlobalAudioStatusUI(`AUDIO ACTIVO (CH ${myProfile.channel})`, 'idle');
+            if (statusPulseIcon) statusPulseIcon.className = 'fa-solid fa-wave-square';
 
             stopVisualizer();
 
@@ -761,27 +866,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 channel: myProfile.channel
             });
 
-            if ('vibrate' in navigator) navigator.vibrate(40);
+            if ('vibrate' in navigator) navigator.vibrate(25);
         }
     }
 
-    emergencyPttBtn.addEventListener('mousedown', startTransmitting);
-    emergencyPttBtn.addEventListener('mouseup', stopTransmitting);
-    emergencyPttBtn.addEventListener('mouseleave', stopTransmitting);
-    emergencyPttBtn.addEventListener('touchstart', (e) => {
-        if (e.cancelable) e.preventDefault();
-        startTransmitting();
-    }, { passive: false });
-    emergencyPttBtn.addEventListener('touchend', (e) => {
-        if (e.cancelable) e.preventDefault();
-        stopTransmitting();
-    }, { passive: false });
-    emergencyPttBtn.addEventListener('contextmenu', e => e.preventDefault());
+    // Vincular eventos PTT tanto al botón grande como al botón flotante global
+    function bindPttButtonEvents(btnElement) {
+        if (!btnElement) return;
+        btnElement.addEventListener('mousedown', () => startTransmitting(true));
+        btnElement.addEventListener('mouseup', stopTransmitting);
+        btnElement.addEventListener('mouseleave', () => {
+            if (isManualPttHeld) stopTransmitting();
+        });
+        btnElement.addEventListener('touchstart', (e) => {
+            if (e.cancelable) e.preventDefault();
+            startTransmitting(true);
+        }, { passive: false });
+        btnElement.addEventListener('touchend', (e) => {
+            if (e.cancelable) e.preventDefault();
+            stopTransmitting();
+        }, { passive: false });
+        btnElement.addEventListener('touchcancel', (e) => {
+            if (e.cancelable) e.preventDefault();
+            stopTransmitting();
+        }, { passive: false });
+        btnElement.addEventListener('contextmenu', e => e.preventDefault());
+    }
+
+    bindPttButtonEvents(emergencyPttBtn);
+    bindPttButtonEvents(globalMiniPttBtn);
 
     window.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            startTransmitting();
+            startTransmitting(true);
         }
         if (oledBlackoutOverlay && !oledBlackoutOverlay.classList.contains('hidden')) {
             oledBlackoutOverlay.classList.add('hidden');
@@ -795,17 +913,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- CONMUTADOR MANOS LIBRES (VOX) SIN BLOQUEAR EL MICRÓFONO ---
     voxHandsFreeToggle.addEventListener('change', async () => {
         unlockAudioAndWake();
-        isVoxActive = voxHandsFreeToggle.checked;
-        if (isVoxActive) {
-            await initMicPipeline();
+        if (voxHandsFreeToggle.checked) {
+            const micOk = await initMicPipeline();
+            if (!micOk) {
+                voxHandsFreeToggle.checked = false;
+                isVoxActive = false;
+                return;
+            }
+            isVoxActive = true;
+            voxCooldownUntil = Date.now() + 350;
+            playTacticalBeep(960, 90);
+            if (voxStateBadge) {
+                voxStateBadge.textContent = 'ACTIVO (HABLA LIBRE)';
+                voxStateBadge.classList.add('active');
+            }
+            if (pttMainLabel) pttMainLabel.textContent = 'MANOS LIBRES ACTIVO';
+            if (pttSubLabel) pttSubLabel.textContent = 'Habla sin tocar o usa el botón';
             startVisualizer();
-            speakEmergencyMessage('Manos libres activado. Habla cuando desees transmitir.');
         } else {
+            isVoxActive = false;
             stopTransmitting();
+            playTacticalBeep(520, 90);
+            if (voxStateBadge) {
+                voxStateBadge.textContent = 'APAGADO';
+                voxStateBadge.classList.remove('active');
+            }
+            if (pttMainLabel) pttMainLabel.textContent = 'MANTÉN PARA HABLAR';
+            if (pttSubLabel) pttSubLabel.textContent = 'Suelta para escuchar';
             stopVisualizer();
-            speakEmergencyMessage('Manos libres desactivado.');
         }
     });
 
@@ -813,7 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = parseInt(voxSensitivity.value, 10);
         voxThreshold = 0.050 - (val * 0.0045);
         let tag = 'Normal';
-        if (val <= 3) tag = 'Baja (Ambiente Ruidoso)';
+        if (val <= 3) tag = 'Ambiente Ruidoso';
         else if (val >= 8) tag = 'Alta (Susurros)';
         voxSensLabel.textContent = `${val} (${tag})`;
     });
@@ -823,8 +961,54 @@ document.addEventListener('DOMContentLoaded', () => {
         myProfile.channel = chanId;
         if (socket && socket.connected) socket.emit('CHANGE_CHANNEL', chanId);
         sendPresenceHeartbeat();
-        speakEmergencyMessage(`Canal ${chanId} sintonizado`);
+        updateGlobalAudioStatusUI(`AUDIO ACTIVO (CH ${chanId})`, 'idle');
+        playTacticalBeep(750, 70);
     });
+
+    // ==========================================================================
+    // CONTROL TOTAL DE LA ALARMA S.O.S. GENERAL (ENCENDER Y APAGAR FÁCILMENTE)
+    // ==========================================================================
+    function setSosAlarmUiState(active, originText = '', detailsText = '') {
+        isSosAlarmActive = active;
+        if (active) {
+            if (sosOriginCallsign && originText) sosOriginCallsign.textContent = originText;
+            if (sosDetails && detailsText) sosDetails.textContent = detailsText;
+            if (criticalSosBanner) criticalSosBanner.classList.remove('hidden');
+            if (globalSilenceSosBtn) globalSilenceSosBtn.classList.remove('hidden');
+            if (triggerEmergencySosBtn) {
+                triggerEmergencySosBtn.classList.add('alarm-active');
+            }
+            if (sosBtnIcon) sosBtnIcon.className = 'fa-solid fa-bell-slash';
+            if (sosBtnText) sosBtnText.textContent = '🛑 APAGAR ALARMA S.O.S. ACTIVA';
+        } else {
+            if (criticalSosBanner) criticalSosBanner.classList.add('hidden');
+            if (globalSilenceSosBtn) globalSilenceSosBtn.classList.add('hidden');
+            if (triggerEmergencySosBtn) {
+                triggerEmergencySosBtn.classList.remove('alarm-active');
+            }
+            if (sosBtnIcon) sosBtnIcon.className = 'fa-solid fa-triangle-exclamation';
+            if (sosBtnText) sosBtnText.textContent = 'EMITIR ALERTA S.O.S. GENERAL';
+        }
+    }
+
+    function stopAllSosAlarms(notifyNetwork = true) {
+        stopAudioBeacon();
+        stopFlashStrobe();
+        if ('speechSynthesis' in window) {
+            try { window.speechSynthesis.cancel(); } catch (e) {}
+        }
+        setSosAlarmUiState(false);
+
+        if (notifyNetwork) {
+            if (socket && socket.connected) socket.emit('CANCEL_SOS');
+            broadcastMeshPacket({
+                type: 'SOS_CANCELLED',
+                msgId: `SOSC-${myNodeId}-${Date.now()}`,
+                originId: myNodeId,
+                callsign: myProfile.callsign
+            });
+        }
+    }
 
     function emitUniversalSos(messageText) {
         const sosId = `SOS-${myNodeId}-${Date.now()}`;
@@ -846,27 +1030,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         broadcastMeshPacket(sosPacket);
         logBlackboxEvent('SOS', 'ALERTA SOS EMITIDA', messageText, myProfile.location);
+
+        // Mostrar el banner de apagado también en el propio teléfono que activó la alarma
+        setSosAlarmUiState(
+            true,
+            `${myProfile.callsign} (TU ALERTA S.O.S.)`,
+            `Toca el botón de abajo para apagar la sirena cuando desees`
+        );
     }
 
     triggerEmergencySosBtn.addEventListener('click', () => {
-        const ok = confirm('¿Confirmas la transmisión de una ALERTA SOS a toda la red?');
-        if (ok) {
-            emitUniversalSos('¡SOLICITUD DE AUXILIO Y RESCATE INMEDIATO!');
-            startAudioBeacon();
+        // Si la alarma o sirena ya está sonando, este mismo botón la APAGA de inmediato
+        if (isSosAlarmActive || activeBeaconOsc) {
+            stopAllSosAlarms(true);
+            return;
         }
+        emitUniversalSos('¡SOLICITUD DE AUXILIO Y RESCATE INMEDIATO!');
+        startAudioBeacon();
     });
 
-    silenceSosAlarmBtn.addEventListener('click', () => {
-        criticalSosBanner.classList.add('hidden');
-        stopAudioBeacon();
-        if (socket && socket.connected) socket.emit('CANCEL_SOS');
-        broadcastMeshPacket({
-            type: 'SOS_CANCELLED',
-            msgId: `SOSC-${myNodeId}-${Date.now()}`,
-            originId: myNodeId,
-            callsign: myProfile.callsign
+    if (silenceSosAlarmBtn) {
+        silenceSosAlarmBtn.addEventListener('click', () => {
+            stopAllSosAlarms(true);
         });
-    });
+    }
+
+    if (globalSilenceSosBtn) {
+        globalSilenceSosBtn.addEventListener('click', () => {
+            stopAllSosAlarms(true);
+        });
+    }
 
     // --- BALIZA SONORA DE LOCALIZACIÓN ---
     function startAudioBeacon() {
@@ -878,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const gain = ctx.createGain();
 
             osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.frequency.setValueAtTime(850, ctx.currentTime);
 
             let high = false;
             const beaconInterval = setInterval(() => {
@@ -887,17 +1080,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 high = !high;
-                osc.frequency.setValueAtTime(high ? 1750 : 850, ctx.currentTime);
+                osc.frequency.setValueAtTime(high ? 1650 : 850, ctx.currentTime);
             }, 350);
 
-            gain.gain.setValueAtTime(0.7, ctx.currentTime);
+            gain.gain.setValueAtTime(0.6, ctx.currentTime);
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start();
 
             activeBeaconOsc = { osc, gain, interval: beaconInterval };
-            audioBeaconBtn.classList.add('active');
-            audioBeaconLabel.textContent = 'DETENER BALIZA SONORA';
+            if (audioBeaconBtn) audioBeaconBtn.classList.add('active');
+            if (audioBeaconLabel) audioBeaconLabel.textContent = '🛑 APAGAR SIRENA SONORA';
+            if (globalSilenceSosBtn) globalSilenceSosBtn.classList.remove('hidden');
         } catch (e) {}
     }
 
@@ -910,20 +1104,24 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {}
             activeBeaconOsc = null;
         }
-        audioBeaconBtn.classList.remove('active');
-        audioBeaconLabel.textContent = 'ACTIVAR BALIZA SONORA';
+        if (audioBeaconBtn) audioBeaconBtn.classList.remove('active');
+        if (audioBeaconLabel) audioBeaconLabel.textContent = 'ENCENDER SIRENA SONORA';
     }
 
     audioBeaconBtn.addEventListener('click', () => {
-        if (activeBeaconOsc) stopAudioBeacon();
-        else startAudioBeacon();
+        if (activeBeaconOsc) {
+            stopAllSosAlarms(false);
+        } else {
+            startAudioBeacon();
+            setSosAlarmUiState(true, `${myProfile.callsign} (SIRENA LOCAL)`, 'Sirena acústica de rescate encendida');
+        }
     });
 
     // --- BALIZA ESTROBOSCÓPICA (FLASH Y PANTALLA SOS) ---
     async function startFlashStrobe() {
         isStrobeActive = true;
         flashStrobeBtn.classList.add('active');
-        flashStrobeLabel.textContent = 'DETENER FLASH SOS';
+        flashStrobeLabel.textContent = '🛑 APAGAR FLASH SOS';
         requestScreenWakeLock();
 
         try {
@@ -951,7 +1149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             document.body.style.backgroundColor = isOn ? '#ffffff' : '#000000';
-        }, 180);
+        }, 200);
     }
 
     function stopFlashStrobe() {
@@ -965,8 +1163,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {}
             torchTrack = null;
         }
-        flashStrobeBtn.classList.remove('active');
-        flashStrobeLabel.textContent = 'FLASH SOS ESTROBOSCÓPICO';
+        if (flashStrobeBtn) flashStrobeBtn.classList.remove('active');
+        if (flashStrobeLabel) flashStrobeLabel.textContent = 'ENCENDER FLASH SOS';
     }
 
     flashStrobeBtn.addEventListener('click', () => {
@@ -999,22 +1197,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const labels = {
                 'OK': 'A salvo y sin lesiones',
-                'SEARCHING': 'Asistiendo en búsqueda y rescate',
-                'INJURED': 'Herido, requiere atención médica',
-                'TRAPPED': 'Atrapado con riesgo vital'
+                'SEARCHING': 'En búsqueda y rescate',
+                'INJURED': 'Herido, requiere auxilio médico',
+                'TRAPPED': 'Atrapado en peligro urgente'
             };
 
-            logBlackboxEvent('TRIAGE', `TRIAGE ACTUALIZADO: ${triageVal}`, labels[triageVal] || triageVal);
-            speakEmergencyMessage(`Triage actualizado a: ${labels[triageVal] || triageVal}`);
+            logBlackboxEvent('TRIAGE', `TRIAGE: ${triageVal}`, labels[triageVal] || triageVal);
+            playTacticalBeep(820, 80);
             rebuildPeerListUI();
         });
     });
 
     function rebuildPeerListUI() {
         const now = Date.now();
-        // Limpiar nodos inactivos de más de 18 segundos
         discoveredPeers.forEach((val, key) => {
-            if (now - (val.lastSeen || 0) > 18000 && !webrtcPeers.has(key)) {
+            if (now - (val.lastSeen || 0) > 20000 && !webrtcPeers.has(key)) {
                 discoveredPeers.delete(key);
             }
         });
@@ -1025,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderCensusList(peers) {
         latestPeers = peers;
-        meshPeersCount.textContent = `${peers.length} ${peers.length === 1 ? 'Nodo' : 'Nodos'}`;
+        meshPeersCount.textContent = `${peers.length} ${peers.length === 1 ? 'Celular' : 'Celulares'}`;
         censusList.innerHTML = '';
 
         peers.forEach(peer => {
@@ -1033,23 +1230,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const triageKey = (peer.triage || 'OK').toLowerCase();
             card.className = `census-card status-${triageKey}`;
 
-            const isMe = (peer.id === myNodeId || peer.id === socket.id) ? ' (ESTE TELÉFONO)' : '';
+            const isMe = (peer.id === myNodeId || peer.id === socket.id) ? ' (TÚ)' : '';
             const triageTitles = {
                 'ok': 'A SALVO',
-                'searching': 'ASISTIENDO',
+                'searching': 'EN BÚSQUEDA',
                 'injured': 'HERIDO',
                 'trapped': 'ATRAPADO'
             };
 
-            let locText = 'GPS: No reportado';
+            let locText = 'Sin GPS aún';
             if (peer.location) {
-                locText = `GPS: Lat ${peer.location.lat.toFixed(4)}, Lng ${peer.location.lng.toFixed(4)}`;
+                locText = `GPS Activo (${peer.location.lat.toFixed(4)}, ${peer.location.lng.toFixed(4)})`;
             }
 
             card.innerHTML = `
                 <div class="card-main">
                     <strong>${peer.callsign}${isMe}</strong>
-                    <small>CH ${peer.channel} | Batería: ${peer.battery}% | ${locText}</small>
+                    <small>CH ${peer.channel} | Bat: ${peer.battery}% | ${locText}</small>
                 </div>
                 <div class="card-badge">
                     ${triageTitles[triageKey] || 'ACTIVO'}
@@ -1058,8 +1255,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.addEventListener('click', () => {
                 if (peer.location && peer.id !== myNodeId) {
-                    navButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === 'tabRadar'));
-                    opPanels.forEach(p => p.classList.toggle('hidden', p.id !== 'tabRadar'));
+                    switchToTab('tabRadar');
                     radarTargetSelect.value = peer.id;
                     updateRadarDisplay();
                 }
@@ -1072,7 +1268,72 @@ document.addEventListener('DOMContentLoaded', () => {
         checkAndInitP2PMeshPeers(peers);
     }
 
-    // --- MENSAJERÍA TÁCTICA Y CHAT RÁPIDO ---
+    // ==========================================================================
+    // SECCIÓN 5: MENSAJES TÁCTICOS Y DICTADO POR VOZ (SPEECH-TO-TEXT)
+    // ==========================================================================
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let speechRecognizer = null;
+
+    if (dictateVoiceMsgBtn) {
+        dictateVoiceMsgBtn.addEventListener('click', () => {
+            if (!SpeechRecognitionAPI) {
+                alert('Tu navegador no soporta dictado directo o requiere usar el micrófono del teclado de tu celular.');
+                emergencyChatInput.focus();
+                return;
+            }
+
+            if (isDictatingSpeech && speechRecognizer) {
+                try { speechRecognizer.stop(); } catch (e) {}
+                return;
+            }
+
+            try {
+                speechRecognizer = new SpeechRecognitionAPI();
+                speechRecognizer.lang = 'es-ES';
+                speechRecognizer.continuous = false;
+                speechRecognizer.interimResults = true;
+
+                speechRecognizer.onstart = () => {
+                    isDictatingSpeech = true;
+                    dictateVoiceMsgBtn.classList.add('listening');
+                    dictateVoiceMsgLabel.textContent = '🎙️ ESCUCHANDO TU VOZ... HABLA AHORA';
+                };
+
+                speechRecognizer.onresult = (event) => {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                    if (emergencyChatInput) {
+                        emergencyChatInput.value = transcript;
+                    }
+                };
+
+                speechRecognizer.onerror = () => {
+                    isDictatingSpeech = false;
+                    dictateVoiceMsgBtn.classList.remove('listening');
+                    dictateVoiceMsgLabel.textContent = 'TOCA AQUÍ PARA DICTAR UN MENSAJE CON TU VOZ';
+                };
+
+                speechRecognizer.onend = () => {
+                    isDictatingSpeech = false;
+                    dictateVoiceMsgBtn.classList.remove('listening');
+                    dictateVoiceMsgLabel.textContent = 'TOCA AQUÍ PARA DICTAR UN MENSAJE CON TU VOZ';
+
+                    const finalMsg = emergencyChatInput.value.trim();
+                    if (finalMsg) {
+                        sendTacticalText(finalMsg);
+                        emergencyChatInput.value = '';
+                    }
+                };
+
+                speechRecognizer.start();
+            } catch (e) {
+                alert('Para dictar, toca el micrófono del teclado o autoriza el permiso de voz.');
+            }
+        });
+    }
+
     quickSosMessages.forEach(btn => {
         btn.addEventListener('click', () => {
             const msg = btn.dataset.msg;
@@ -1099,7 +1360,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function sendTacticalText(text) {
-        const msgId = `MSG-${myNodeId}-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+        const msgId = `MSG-${myNodeId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         registerMeshMsg(msgId);
 
         const chatPacket = {
@@ -1147,29 +1408,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- NAVEGACIÓN POR PESTAÑAS TÁCTICAS ---
+    // --- NAVEGACIÓN POR PESTAÑAS CON AUDIO CONTINUO Y BARRA MINI-PTT ---
+    function switchToTab(targetId) {
+        unlockAudioAndWake();
+        navButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === targetId));
+        opPanels.forEach(panel => {
+            if (panel.id === targetId) panel.classList.remove('hidden');
+            else panel.classList.add('hidden');
+        });
+
+        // Mostrar la barra global de Audio y PTT en todas las pantallas excepto en 1. VOZ HD
+        if (globalMiniPttBar) {
+            if (targetId === 'tabIntercom') {
+                globalMiniPttBar.classList.add('hidden');
+            } else {
+                globalMiniPttBar.classList.remove('hidden');
+            }
+        }
+
+        if (targetId === 'tabRadar') {
+            updateRadarDisplay();
+        } else if (targetId === 'tabBlackbox') {
+            renderBlackboxTimeline();
+        }
+    }
+
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            navButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            const targetId = btn.dataset.tab;
-            opPanels.forEach(panel => {
-                if (panel.id === targetId) panel.classList.remove('hidden');
-                else panel.classList.add('hidden');
-            });
-
-            if (targetId === 'tabRadar') {
-                updateRadarDisplay();
-            } else if (targetId === 'tabBlackbox') {
-                renderBlackboxTimeline();
-            }
+            switchToTab(btn.dataset.tab);
         });
     });
 
     blackoutToggleBtn.addEventListener('click', () => {
         oledBlackoutOverlay.classList.remove('hidden');
-        speakEmergencyMessage('Modo apagón de batería activado. La radio sigue operando.');
     });
 
     ['click', 'touchstart'].forEach(evt => {
@@ -1182,7 +1453,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================================
     // MOTOR SERVERLESS P2P DESCENTRALIZADO (AUTO-MESH + WEBRTC DIRECTO + OFFLINE QR)
     // ==========================================================================
-    const webrtcPeers = new Map(); // targetId -> { pc, dc, callsign }
+    const webrtcPeers = new Map();
     let mqttClient = null;
     const MESH_TOPIC_ROOT = 'sos-rescate-mesh-v36-global/room';
     const localTabChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('sos_rescate_mesh_v36') : null;
@@ -1194,10 +1465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initServerlessAutoMesh() {
-        if (typeof window.mqtt === 'undefined') {
-            console.warn('[Auto-Mesh] Librería MQTT no disponible (modo 100% offline local activo).');
-            return;
-        }
+        if (typeof window.mqtt === 'undefined') return;
 
         const brokers = [
             'wss://broker.emqx.io:8084/mqtt',
@@ -1231,9 +1499,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     meshStatusText.textContent = 'MODO OFFLINE P2P';
                 }
             });
-        } catch (err) {
-            console.warn('[Auto-Mesh] Operando en modo directo offline:', err);
-        }
+        } catch (err) {}
     }
 
     function sendPresenceHeartbeat() {
@@ -1254,7 +1520,6 @@ document.addEventListener('DOMContentLoaded', () => {
         broadcastMeshPacket(hbPacket);
     }
 
-    // Enviar latido de presencia cada 4 segundos para auto-descubrimiento celular a celular
     setInterval(() => {
         sendPresenceHeartbeat();
         rebuildPeerListUI();
@@ -1263,19 +1528,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function broadcastMeshPacket(packet) {
         const jsonStr = JSON.stringify(packet);
 
-        // 1. Enviar por todos los enlaces directos WebRTC Celular-a-Celular abiertos
         webrtcPeers.forEach(peer => {
             if (peer.dc && peer.dc.readyState === 'open') {
                 try { peer.dc.send(jsonStr); } catch (e) {}
             }
         });
 
-        // 2. Enviar por pestaña local BroadcastChannel
         if (localTabChannel) {
             try { localTabChannel.postMessage(packet); } catch (e) {}
         }
 
-        // 3. Enviar por Broker Descentralizado WSS (si hay conexión)
         if (mqttClient && mqttClient.connected) {
             try { mqttClient.publish(MESH_TOPIC_ROOT, jsonStr, { qos: 0 }); } catch (e) {}
         }
@@ -1283,7 +1545,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleIncomingMeshPacket(packet) {
         if (!packet || !packet.type) return;
-        if (packet.originId === myNodeId) return; // Ignorar mis propios paquetes
+        if (packet.originId === myNodeId) return;
 
         if (packet.type === 'PEER_HEARTBEAT' && packet.profile) {
             const p = packet.profile;
@@ -1292,8 +1554,11 @@ document.addEventListener('DOMContentLoaded', () => {
             discoveredPeers.set(p.id, p);
             if (isNew) {
                 rebuildPeerListUI();
-                // Responder inmediatamente con mi presencia para que me vea al instante
                 setTimeout(sendPresenceHeartbeat, 200);
+            } else {
+                // Actualizar coordenadas GPS del compañero en vivo
+                updateRadarTargetsDropdown(latestPeers);
+                updateRadarDisplay();
             }
             return;
         }
@@ -1306,7 +1571,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const msgId = packet.msgId || packet.id;
-        if (registerMeshMsg(msgId)) return; // Desduplicar paquete
+        if (registerMeshMsg(msgId)) return;
 
         if (packet.type === 'AUDIO_CHUNK') {
             if (packet.channel === myProfile.channel && !isTransmitting) {
@@ -1316,34 +1581,36 @@ document.addEventListener('DOMContentLoaded', () => {
             if (packet.channel === myProfile.channel && !isTransmitting) {
                 isReceiving = true;
                 nextPlayTime = 0;
-                intercomStatusBox.className = 'tx-rx-status receiving';
-                intercomStatusLabel.textContent = `RECIBIENDO: ${packet.callsign}`;
-                statusPulseIcon.className = 'fa-solid fa-volume-high';
+                voxCooldownUntil = Date.now() + 900;
+                updateGlobalAudioStatusUI(`ESCUCHANDO A: ${packet.callsign}`, 'rx');
+                if (statusPulseIcon) statusPulseIcon.className = 'fa-solid fa-volume-high';
                 startVisualizer();
             }
         } else if (packet.type === 'TRANSMIT_END') {
             if (packet.channel === myProfile.channel) {
                 isReceiving = false;
                 nextPlayTime = 0;
-                intercomStatusBox.className = 'tx-rx-status';
-                intercomStatusLabel.textContent = 'LISTO - CANAL DESPEJADO';
-                statusPulseIcon.className = 'fa-solid fa-wave-square';
+                voxCooldownUntil = Date.now() + 450;
+                updateGlobalAudioStatusUI(`AUDIO ACTIVO (CH ${myProfile.channel})`, 'idle');
+                if (statusPulseIcon) statusPulseIcon.className = 'fa-solid fa-wave-square';
                 stopVisualizer();
             }
         } else if (packet.type === 'SOS_ALERT') {
-            showCriticalSosBanner(packet);
+            setSosAlarmUiState(
+                true,
+                `AUXILIO DE: ${packet.callsign} (CH ${packet.channel || 1})`,
+                packet.location ? `GPS: ${packet.location.lat.toFixed(4)}, ${packet.location.lng.toFixed(4)} | ${packet.message}` : packet.message
+            );
             if ('vibrate' in navigator) navigator.vibrate([400, 150, 400, 150, 400]);
-            speakEmergencyMessage(`¡Atención! Alerta de auxilio emitida por ${packet.callsign}. ${packet.message}`, true);
-            logBlackboxEvent('SOS', `ALERTA SOS P2P: ${packet.callsign}`, packet.message, packet.location);
+            speakEmergencyMessage(`Alerta de auxilio de ${packet.callsign}. ${packet.message}`, true);
+            logBlackboxEvent('SOS', `ALERTA SOS DE ${packet.callsign}`, packet.message, packet.location);
             startAudioBeacon();
         } else if (packet.type === 'SOS_CANCELLED') {
-            criticalSosBanner.classList.add('hidden');
-            stopAudioBeacon();
+            stopAllSosAlarms(false);
         } else if (packet.type === 'TACTICAL_TEXT') {
             addChatMessage(packet);
             logBlackboxEvent('TEXT', `TEXTO DE ${packet.callsign}`, packet.text, packet.location);
         } else if (packet.type === 'TRIAGE_ANNOUNCED') {
-            speakEmergencyMessage(`Actualización: ${packet.callsign} cambió su estado a ${packet.triage}`);
             logBlackboxEvent('TRIAGE', `TRIAGE: ${packet.callsign}`, `Estado: ${packet.triage}`, packet.location);
         }
     }
@@ -1390,7 +1657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function createBasePeerConnection(targetId, targetCallsign) {
+    function createBasePeerConnection(targetId) {
         const pc = new RTCPeerConnection({
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -1418,7 +1685,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dc.onopen = () => {
             updateP2PStatusUI();
             sendPresenceHeartbeat();
-            logBlackboxEvent('P2P', 'ENLACE P2P CELULAR A CELULAR ACTIVO', `Conectado directamente con ${targetCallsign}`);
+            logBlackboxEvent('P2P', 'ENLACE P2P DIRECTO ACTIVO', `Conectado con ${targetCallsign}`);
         };
 
         dc.onclose = () => {
@@ -1483,7 +1750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- EMPAREJAMIENTO MANUAL / QR 100% OFFLINE (HOTSPOT SIN INTERNET) ---
+    // --- EMPAREJAMIENTO MANUAL / QR 100% OFFLINE ---
     let manualOfflinePc = null;
 
     if (p2pMeshChip) {
@@ -1515,7 +1782,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnCreateP2pOffer) {
         btnCreateP2pOffer.addEventListener('click', async () => {
-            p2pTokenBox.value = 'Generando llave P2P local (espera 1 segundo)...';
+            p2pTokenBox.value = 'Generando código P2P...';
             manualOfflinePc = new RTCPeerConnection({ iceServers: [] });
             const dc = manualOfflinePc.createDataChannel('sos_offline_p2p', { ordered: false, maxRetransmits: 0 });
             const peerTempId = 'OFFLINE-' + Date.now();
@@ -1543,7 +1810,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnAcceptP2pStep) {
         btnAcceptP2pStep.addEventListener('click', () => {
             p2pTokenBox.value = '';
-            p2pTokenBox.placeholder = 'Pega aquí el código del otro celular y pulsa PROCESAR Y CONECTAR...';
+            p2pTokenBox.placeholder = 'Pega aquí el código del otro celular y toca CONECTAR...';
             p2pQrContainer.classList.add('hidden');
             p2pTokenBox.focus();
         });
@@ -1553,7 +1820,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnCopyP2pToken.addEventListener('click', () => {
             if (p2pTokenBox.value) {
                 navigator.clipboard.writeText(p2pTokenBox.value).then(() => {
-                    alert('Código copiado. Envíalo o pégalo en el otro celular.');
+                    alert('Código copiado.');
                 }).catch(() => {
                     p2pTokenBox.select();
                     document.execCommand('copy');
@@ -1570,13 +1837,11 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const decoded = JSON.parse(atob(raw));
                 if (decoded.t === 'O') {
-                    // Recibimos una Oferta -> creamos Respuesta
                     const pc = new RTCPeerConnection({ iceServers: [] });
                     pc.ondatachannel = (ev) => {
                         setupDataChannel(ev.channel, decoded.id || 'PAR', decoded.cs || 'PAR');
                         webrtcPeers.set(decoded.id || 'PAR', { pc, dc: ev.channel, callsign: decoded.cs || 'PAR' });
                         p2pOfflineModal.classList.add('hidden');
-                        speakEmergencyMessage('Enlace directo celular a celular completado.', true);
                     };
 
                     pc.onicecandidate = (e) => {
@@ -1589,7 +1854,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }));
                             p2pTokenBox.value = ansToken;
                             renderQrToken(ansToken);
-                            alert('Respuesta generada. Copia este código de vuelta al Celular 1 para finalizar.');
+                            alert('Respuesta generada. Copia este código al Celular 1.');
                         }
                     };
 
@@ -1599,16 +1864,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (decoded.t === 'A' && manualOfflinePc) {
                     await manualOfflinePc.setRemoteDescription(new RTCSessionDescription(decoded.sdp));
                     p2pOfflineModal.classList.add('hidden');
-                    speakEmergencyMessage('Enlace directo celular a celular completado.', true);
                 }
             } catch (e) {
-                alert('Código P2P inválido o incompleto.');
+                alert('Código P2P inválido.');
             }
         });
     }
 
     // ==========================================================================
-    // CAPACIDAD 2: BRÚJULA TÁCTICA & RADAR DE PROXIMIDAD GPS HACIA VÍCTIMAS
+    // SECCIÓN 3: BRÚJULA VIVA CON ROSA DE LOS VIENTOS Y RADAR GPS
     // ==========================================================================
     let deviceCompassHeading = 0;
 
@@ -1632,133 +1896,189 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function bearingToCardinal(deg) {
-        const cardinals = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+        const cardinals = ['Norte (N)', 'Noreste (NE)', 'Este (E)', 'Sureste (SE)', 'Sur (S)', 'Suroeste (SO)', 'Oeste (O)', 'Noroeste (NO)'];
         const index = Math.round(deg / 45) % 8;
         return cardinals[index];
     }
 
     function updateRadarTargetsDropdown(peers) {
+        if (!radarTargetSelect) return;
         const previousVal = radarTargetSelect.value;
         radarTargetSelect.innerHTML = '';
 
-        const peersWithGps = peers.filter(p => p.id !== myNodeId && p.id !== socket.id && p.location);
+        const otherPeers = peers.filter(p => p.id !== myNodeId && p.id !== socket.id);
 
-        if (peersWithGps.length === 0) {
-            radarTargetSelect.innerHTML = '<option value="">-- Sin víctimas detectadas con GPS --</option>';
+        if (otherPeers.length === 0) {
+            radarTargetSelect.innerHTML = '<option value="">-- Esperando otro celular conectado... --</option>';
             return;
         }
 
-        peersWithGps.sort((a, b) => {
-            const prio = { 'TRAPPED': 1, 'INJURED': 2, 'SEARCHING': 3, 'OK': 4 };
-            return (prio[a.triage] || 5) - (prio[b.triage] || 5);
-        });
-
-        peersWithGps.forEach(p => {
+        otherPeers.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
-            const statusTag = p.triage === 'TRAPPED' ? '⚠️ ATRAPADO' : (p.triage === 'INJURED' ? '🩹 HERIDO' : p.triage);
-            opt.textContent = `${p.callsign} [${statusTag}]`;
+            const gpsStatus = p.location ? '📍 GPS Activo' : '⏳ Sin GPS aún';
+            opt.textContent = `${p.callsign} (${gpsStatus})`;
             radarTargetSelect.appendChild(opt);
         });
 
-        if (previousVal && peersWithGps.some(p => p.id === previousVal)) {
+        if (previousVal && otherPeers.some(p => p.id === previousVal)) {
             radarTargetSelect.value = previousVal;
         } else {
             radarTargetSelect.selectedIndex = 0;
         }
-
-        updateRadarDisplay();
     }
 
     function updateRadarDisplay() {
+        // 1. Actualizar lectura en vivo de la Brújula del propio celular
+        const roundedHeading = Math.round(deviceCompassHeading);
+        if (myCompassHeadingText) {
+            myCompassHeadingText.textContent = `${roundedHeading}° (${bearingToCardinal(roundedHeading)})`;
+        }
+        if (compassRoseRing) {
+            compassRoseRing.style.transform = `rotate(${-roundedHeading}deg)`;
+        }
+
+        // 2. Actualizar estado de mi GPS
         if (!myProfile.location) {
-            radarMyCoords.textContent = 'GPS obteniendo señal de satélite...';
-            radarDistanceValue.textContent = '-- m';
-            radarBearingValue.textContent = '--° (--)';
+            if (radarMyCoords) radarMyCoords.textContent = 'Toca "1. Activar Brújula y GPS" arriba';
+            if (radarDistanceValue) radarDistanceValue.textContent = '-- m';
+            if (radarBearingValue) radarBearingValue.textContent = `${roundedHeading}°`;
             return;
         }
 
-        radarMyCoords.textContent = `Lat: ${myProfile.location.lat.toFixed(5)}, Lng: ${myProfile.location.lng.toFixed(5)}`;
+        if (radarMyCoords) {
+            radarMyCoords.textContent = `${myProfile.location.lat.toFixed(5)}, ${myProfile.location.lng.toFixed(5)}`;
+        }
 
-        const targetId = radarTargetSelect.value;
+        const targetId = radarTargetSelect ? radarTargetSelect.value : '';
         const targetPeer = latestPeers.find(p => p.id === targetId);
 
         if (!targetPeer || !targetPeer.location) {
-            radarTargetCoords.textContent = 'Selecciona una víctima con GPS activo';
-            radarDistanceValue.textContent = '-- m';
-            radarBearingValue.textContent = '--° (--)';
-            radarArrowWrapper.style.transform = 'rotate(0deg)';
+            if (radarTargetCoords) {
+                radarTargetCoords.textContent = targetPeer
+                    ? `${targetPeer.callsign} aún no ha activado su GPS`
+                    : 'Conecta un segundo celular con GPS';
+            }
+            if (radarDistanceValue) radarDistanceValue.textContent = '-- m';
+            if (radarBearingValue) radarBearingValue.textContent = `${roundedHeading}°`;
+            if (radarArrowWrapper) radarArrowWrapper.style.transform = 'rotate(0deg)';
             return;
         }
 
         const tLoc = targetPeer.location;
-        radarTargetCoords.textContent = `Lat: ${tLoc.lat.toFixed(5)}, Lng: ${tLoc.lng.toFixed(5)}`;
+        if (radarTargetCoords) {
+            radarTargetCoords.textContent = `${tLoc.lat.toFixed(5)}, ${tLoc.lng.toFixed(5)}`;
+        }
 
         const dist = calculateDistanceMeters(myProfile.location.lat, myProfile.location.lng, tLoc.lat, tLoc.lng);
         const bearing = calculateBearing(myProfile.location.lat, myProfile.location.lng, tLoc.lat, tLoc.lng);
         const card = bearingToCardinal(bearing);
 
-        radarDistanceValue.textContent = dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`;
-        radarBearingValue.textContent = `${bearing}° (${card})`;
+        if (radarDistanceValue) {
+            radarDistanceValue.textContent = dist >= 1000 ? `${(dist / 1000).toFixed(2)} km` : `${dist} metros`;
+        }
+        if (radarBearingValue) {
+            radarBearingValue.textContent = `${bearing}° hacia el ${card}`;
+        }
 
         const relativeAngle = (bearing - deviceCompassHeading + 360) % 360;
-        radarArrowWrapper.style.transform = `rotate(${relativeAngle}deg)`;
+        if (radarArrowWrapper) {
+            radarArrowWrapper.style.transform = `rotate(${relativeAngle}deg)`;
+        }
     }
 
-    radarTargetSelect.addEventListener('change', updateRadarDisplay);
+    if (radarTargetSelect) {
+        radarTargetSelect.addEventListener('change', updateRadarDisplay);
+    }
 
-    radarSpeakHeadingBtn.addEventListener('click', () => {
-        const targetId = radarTargetSelect.value;
-        const targetPeer = latestPeers.find(p => p.id === targetId);
-        if (!targetPeer || !targetPeer.location || !myProfile.location) {
-            speakEmergencyMessage('No hay datos de localización GPS suficientes para calcular el rumbo.', true);
-            return;
-        }
+    if (radarSpeakHeadingBtn) {
+        radarSpeakHeadingBtn.addEventListener('click', () => {
+            const targetId = radarTargetSelect.value;
+            const targetPeer = latestPeers.find(p => p.id === targetId);
+            if (!myProfile.location) {
+                speakEmergencyMessage(`Tu brújula apunta a ${Math.round(deviceCompassHeading)} grados. Toca el botón Activar Brújula y GPS para medir distancia.`, true);
+                return;
+            }
+            if (!targetPeer || !targetPeer.location) {
+                speakEmergencyMessage(`Tu celular apunta a ${Math.round(deviceCompassHeading)} grados ${bearingToCardinal(deviceCompassHeading)}. Esperando señal GPS del segundo celular.`, true);
+                return;
+            }
 
-        const dist = calculateDistanceMeters(myProfile.location.lat, myProfile.location.lng, targetPeer.location.lat, targetPeer.location.lng);
-        const bearing = calculateBearing(myProfile.location.lat, myProfile.location.lng, targetPeer.location.lat, targetPeer.location.lng);
-        const card = bearingToCardinal(bearing);
+            const dist = calculateDistanceMeters(myProfile.location.lat, myProfile.location.lng, targetPeer.location.lat, targetPeer.location.lng);
+            const bearing = calculateBearing(myProfile.location.lat, myProfile.location.lng, targetPeer.location.lat, targetPeer.location.lng);
+            const card = bearingToCardinal(bearing);
+            const distText = dist >= 1000 ? `${(dist / 1000).toFixed(1)} kilómetros` : `${dist} metros`;
+            speakEmergencyMessage(`${targetPeer.callsign} está a ${distText}, en dirección ${bearing} grados ${card}.`, true);
+        });
+    }
 
-        const distText = dist >= 1000 ? `${(dist / 1000).toFixed(1)} kilómetros` : `${dist} metros`;
-        speakEmergencyMessage(`Rumbo hacia ${targetPeer.callsign}: ${bearing} grados dirección ${card}, distancia ${distText}.`, true);
-    });
+    function requestGpsLocationNow() {
+        if (!('geolocation' in navigator)) return;
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                myProfile.location = {
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    acc: pos.coords.accuracy
+                };
+                if (gpsText) gpsText.textContent = 'GPS OK';
+                if (gpsChip) gpsChip.style.color = '#00ff66';
+                sendPresenceHeartbeat();
+                updateRadarDisplay();
+            },
+            () => {
+                if (gpsText) gpsText.textContent = 'SIN GPS';
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
 
-    radarCalibrateBtn.addEventListener('click', async () => {
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            try {
-                const response = await DeviceOrientationEvent.requestPermission();
-                if (response === 'granted') {
-                    window.addEventListener('deviceorientation', handleDeviceOrientation, true);
-                    alert('Sensor magnético calibrado y activo.');
-                } else {
-                    alert('Permiso de sensor denegado.');
-                }
-            } catch (err) {}
-        } else {
-            alert('Sensor de brújula magnética activo.');
-        }
-    });
+    if (radarCalibrateBtn) {
+        radarCalibrateBtn.addEventListener('click', async () => {
+            requestGpsLocationNow();
+
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const response = await DeviceOrientationEvent.requestPermission();
+                    if (response === 'granted') {
+                        window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+                        radarCalibrateBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> BRÚJULA Y GPS ACTIVOS (GIRA EL CELULAR)';
+                    } else {
+                        alert('Permiso de brújula denegado en iOS.');
+                    }
+                } catch (err) {}
+            } else {
+                window.addEventListener('deviceorientationabsolute', handleDeviceOrientation, true);
+                window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+                radarCalibrateBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> BRÚJULA Y GPS ACTIVOS (GIRA EL CELULAR)';
+            }
+            playTacticalBeep(920, 90);
+            updateRadarDisplay();
+        });
+    }
 
     function handleDeviceOrientation(event) {
         let heading = null;
-        if (event.webkitCompassHeading) {
+        if (typeof event.webkitCompassHeading === 'number') {
             heading = event.webkitCompassHeading;
         } else if (event.alpha !== null) {
-            heading = 360 - event.alpha;
+            heading = (360 - event.alpha) % 360;
         }
 
-        if (heading !== null) {
+        if (heading !== null && !isNaN(heading)) {
             deviceCompassHeading = heading;
             updateRadarDisplay();
         }
     }
 
-    if (window.DeviceOrientationEvent) {
+    if ('ondeviceorientationabsolute' in window) {
+        window.addEventListener('deviceorientationabsolute', handleDeviceOrientation, true);
+    } else if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', handleDeviceOrientation, true);
     }
 
     // ==========================================================================
-    // CAPACIDAD 3: CAJA NEGRA / BITÁCORA FORENSE OFFLINE (INDEXEDDB)
+    // SECCIÓN 6: CAJA NEGRA / BITÁCORA OFFLINE (INDEXEDDB)
     // ==========================================================================
     let blackboxDb = null;
     let inMemoryLogs = [];
@@ -1822,9 +2142,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const sosCount = inMemoryLogs.filter(e => e.type === 'SOS').length;
         const victimsCount = inMemoryLogs.filter(e => e.type === 'TRIAGE' && (e.details.includes('Herido') || e.details.includes('Atrapado') || e.details.includes('INJURED') || e.details.includes('TRAPPED'))).length;
 
-        bbTotalCount.textContent = total;
-        bbSosCount.textContent = sosCount;
-        bbVictimsCount.textContent = victimsCount;
+        if (bbTotalCount) bbTotalCount.textContent = total;
+        if (bbSosCount) bbSosCount.textContent = sosCount;
+        if (bbVictimsCount) bbVictimsCount.textContent = victimsCount;
     }
 
     function renderBlackboxTimeline() {
@@ -1842,7 +2162,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let coordsText = '';
             if (entry.coords) {
-                coordsText = `<div class="bb-card-coords"><i class="fa-solid fa-location-dot"></i> GPS: Lat ${entry.coords.lat.toFixed(4)}, Lng ${entry.coords.lng.toFixed(4)}</div>`;
+                coordsText = `<div class="bb-card-coords"><i class="fa-solid fa-location-dot"></i> GPS: ${entry.coords.lat.toFixed(4)}, ${entry.coords.lng.toFixed(4)}</div>`;
             }
 
             card.innerHTML = `
@@ -1859,7 +2179,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     bbExportBtn.addEventListener('click', () => {
         if (inMemoryLogs.length === 0) {
-            alert('No hay eventos registrados en la bitácora para exportar.');
+            alert('No hay eventos registrados aún.');
             return;
         }
 
@@ -1882,7 +2202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     bbClearBtn.addEventListener('click', () => {
-        if (confirm('¿Confirmas el borrado de todos los registros de la caja negra local?')) {
+        if (confirm('¿Borrar el historial guardado?')) {
             inMemoryLogs = [];
             if (blackboxDb) {
                 const tx = blackboxDb.transaction('incident_logs', 'readwrite');
@@ -1896,19 +2216,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initIndexedDb();
 
     // ==========================================================================
-    // CAPACIDAD 4: INSTALADOR PWA STANDALONE A PANTALLA COMPLETA
+    // INSTALADOR PWA STANDALONE
     // ==========================================================================
     let deferredInstallPrompt = null;
     const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
     if (isStandalone) {
-        pwaInstallBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> STANDALONE';
+        pwaInstallBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> INSTALADA';
         pwaInstallBtn.classList.remove('hidden');
-        pwaInstallBtn.style.borderColor = '#00ff66';
-        pwaInstallBtn.style.color = '#00ff66';
     } else {
-        // Mostrar siempre el botón INSTALAR para acceso directo en Android/iOS
         pwaInstallBtn.classList.remove('hidden');
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
@@ -1919,7 +2236,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pwaInstallBtn.addEventListener('click', async () => {
         if (isStandalone) {
-            alert('La app ya está instalada en tu teléfono para uso 100% sin internet.');
+            alert('La app ya está instalada en tu celular.');
             return;
         }
 
@@ -1933,14 +2250,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (isIos) {
             iosInstallModal.classList.remove('hidden');
         } else {
-            alert('Para instalar en tu pantalla de inicio: abre el menú del navegador (⋮) y toca "Instalar aplicación" o "Agregar a pantalla principal".');
+            alert('Abre el menú del navegador (⋮) y selecciona "Instalar aplicación" o "Agregar a pantalla principal".');
         }
     });
 
     closeIosModalBtn.addEventListener('click', () => iosInstallModal.classList.add('hidden'));
     ackIosModalBtn.addEventListener('click', () => iosInstallModal.classList.add('hidden'));
 
-    // --- RECUPERACIÓN TRAS SUSPENSIÓN / APAGADO DE PANTALLA ---
+    // --- RECUPERACIÓN AUTOMÁTICA DE AUDIO CONTINUO ---
     function handleWakeupAndReconnect() {
         requestScreenWakeLock();
         unlockAudioAndWake();
@@ -1965,7 +2282,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('pageshow', handleWakeupAndReconnect);
     window.addEventListener('online', handleWakeupAndReconnect);
 
-    // --- COMPATIBILIDAD OPCIONAL CON SOCKET.IO LOCAL ---
     socket.on('TRANSMIT_GRANTED', () => {
         grantTransmitState();
     });
@@ -1977,14 +2293,6 @@ document.addEventListener('DOMContentLoaded', () => {
             playAudioChunk(data.data || data, data.callsign);
         }
     });
-
-    function showCriticalSosBanner(sos) {
-        sosOriginCallsign.textContent = `${sos.callsign} (CH ${sos.channel || 1})`;
-        sosDetails.textContent = sos.location ?
-            `GPS: ${sos.location.lat.toFixed(4)}, ${sos.location.lng.toFixed(4)} | Mensaje: ${sos.message}` :
-            `Mensaje: ${sos.message}`;
-        criticalSosBanner.classList.remove('hidden');
-    }
 
     emergencyCallsignInput.addEventListener('change', () => {
         const val = emergencyCallsignInput.value.trim().toUpperCase();
@@ -2018,15 +2326,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     lng: pos.coords.longitude,
                     acc: pos.coords.accuracy
                 };
-                gpsText.textContent = 'GPS OK';
-                gpsChip.style.color = '#00ff66';
+                if (gpsText) gpsText.textContent = 'GPS OK';
+                if (gpsChip) gpsChip.style.color = '#00ff66';
                 updateRadarDisplay();
             },
             () => {
-                gpsText.textContent = 'SIN GPS';
-                gpsChip.style.color = '#ff6a00';
+                if (gpsText) gpsText.textContent = 'GPS';
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
         );
     }
 
@@ -2048,8 +2355,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Inicializar Censo, Wake Lock y Auto-Mesh Serverless
     rebuildPeerListUI();
     initServerlessAutoMesh();
     requestScreenWakeLock();
+    updateRadarDisplay();
 });
