@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>S.O.S. RESCATE - Sistema Táctico de Misión Crítica</title>
+    <link rel="manifest" href="manifest-emergency.json">
+    <link rel="stylesheet" href="emergency.css?v=35">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000000'/><circle cx='50' cy='50' r='36' fill='%23ff0033'/><path d='M35 50 L65 50 M50 35 L50 65' stroke='%23ffffff' stroke-width='8' stroke-linecap='round'/></svg>">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="emergency-body">
+
+    <!-- OVERLAY APAGÓN OLED (AHORRO EXTREMO DE BATERÍA) -->
+    <div id="oledBlackoutOverlay" class="oled-overlay hidden" title="Toca en cualquier parte para encender pantalla">
+        <div class="oled-alert-pill">
+            <span class="pulsing-dot"></span>
+            <span>MODO APAGÓN OLED ACTIVO (AUDIO Y DETECTOR OPERANDO)</span>
+        </div>
+        <p class="oled-hint"><i class="fa-solid fa-fingerprint"></i> TOCA LA PANTALLA O PULSA VOLUMEN PARA ACTIVAR VISIÓN</p>
+    </div>
+
+    <!-- BANNER DE ALERTA SOS CRÍTICA EN RED -->
+    <div id="criticalSosBanner" class="critical-sos-banner hidden">
+        <div class="sos-banner-inner">
+            <i class="fa-solid fa-triangle-exclamation sos-flash-icon"></i>
+            <div class="sos-banner-info">
+                <span class="sos-title">¡ALERTA DE RESCATE / AUXILIO VITAL!</span>
+                <strong id="sosOriginCallsign">RADIO-SOS</strong>
+                <span id="sosDetails">Localización: Obteniendo...</span>
+            </div>
+            <button id="silenceSosAlarmBtn" class="btn-sos-ack"><i class="fa-solid fa-bell-slash"></i> SILENCIAR</button>
+        </div>
+    </div>
+
+    <!-- BANNER TÁCTIL DE AUTORIZACIÓN DE MICRÓFONO -->
+    <div id="micPromptBanner" class="mic-prompt-banner">
+        <i class="fa-solid fa-microphone-lines"></i>
+        <span>TOCA AQUÍ PARA HABILITAR EL MICRÓFONO Y AUDIO HD</span>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL TÁCTICO -->
+    <div class="tactical-container">
+
+        <!-- CABECERA TÁCTICA -->
+        <header class="tactical-header">
+            <div class="header-left">
+                <div class="mesh-node-badge" id="meshStatusBadge">
+                    <span class="mesh-dot online"></span>
+                    <span id="meshStatusText">MESH P2P ACTIVO</span>
+                </div>
+                <div class="callsign-chip" id="callsignChip" title="Toca para editar tu indicativo">
+                    <i class="fa-solid fa-id-badge"></i>
+                    <input type="text" id="emergencyCallsignInput" value="RESCATE-01" maxlength="15" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="header-right">
+                <span id="p2pMeshChip" class="telemetry-chip p2p-chip" title="Enlaces directos WebRTC entre celulares">
+                    <i class="fa-solid fa-diagram-project"></i> <span id="p2pMeshText">0 P2P</span>
+                </span>
+                <span id="batteryChip" class="telemetry-chip" title="Batería Restante">
+                    <i class="fa-solid fa-battery-full"></i> <span id="batteryText">100%</span>
+                </span>
+                <span id="gpsChip" class="telemetry-chip" title="GPS Satelital">
+                    <i class="fa-solid fa-location-crosshairs"></i> <span id="gpsText">GPS</span>
+                </span>
+                <button id="pwaInstallBtn" class="pwa-install-btn hidden" title="Instalar en Celular como App Nativa">
+                    <i class="fa-solid fa-download"></i> INSTALAR
+                </button>
+                <button id="blackoutToggleBtn" class="icon-tactical-btn" title="Modo Apagón OLED (Ahorro Batería)">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <a href="./index.html" class="icon-tactical-btn radio-switch-btn" title="Cambiar a Interfaz de Radio Clásica">
+                    <i class="fa-solid fa-walkie-talkie"></i>
+                </a>
+            </div>
+        </header>
+
+        <!-- NAVEGACIÓN PRINCIPAL DE OPERACIONES (6 PESTAÑAS TÁCTICAS) -->
+        <nav class="tactical-nav">
+            <button class="nav-btn active" data-tab="tabIntercom">
+                <i class="fa-solid fa-headset"></i> VOZ HD
+            </button>
+            <button class="nav-btn" data-tab="tabTriage">
+                <i class="fa-solid fa-heart-pulse"></i> TRIAGE
+            </button>
+            <button class="nav-btn" data-tab="tabRadar">
+                <i class="fa-solid fa-compass"></i> RADAR
+            </button>
+            <button class="nav-btn" data-tab="tabRescue">
+                <i class="fa-solid fa-bullhorn"></i> BALIZAS
+            </button>
+            <button class="nav-btn" data-tab="tabChat">
+                <i class="fa-solid fa-message"></i> TEXTO
+            </button>
+            <button class="nav-btn" data-tab="tabBlackbox">
+                <i class="fa-solid fa-box-archive"></i> BITÁCORA
+            </button>
+        </nav>
+
+        <!-- SECCIÓN 1: INTERCOMUNICADOR DE VOZ HD Y PTT MANOS LIBRES -->
+        <section id="tabIntercom" class="op-panel active">
+            
+            <!-- MONITOR DE ESTADO Y ONDA DE AUDIO -->
+            <div class="voice-status-card">
+                <div class="voice-card-header">
+                    <span class="voice-mode-badge"><i class="fa-solid fa-shield-halved"></i> CANAL ACTIVO:</span>
+                    <select id="emergencyChannelSelect" class="tactical-select">
+                        <option value="1">CH 1: EMERGENCIA Y AUXILIO</option>
+                        <option value="2">CH 2: BÚSQUEDA Y RESCATE</option>
+                        <option value="3">CH 3: ASISTENCIA MÉDICA</option>
+                        <option value="4">CH 4: EVACUACIÓN Y LOGÍSTICA</option>
+                    </select>
+                </div>
+
+                <div class="tx-rx-status" id="intercomStatusBox">
+                    <i class="fa-solid fa-wave-square" id="statusPulseIcon"></i>
+                    <span id="intercomStatusLabel">LISTO - CANAL DESPEJADO</span>
+                </div>
+
+                <!-- OSCILOSCOPIO DIGITAL DE ENERGÍA Y VOZ -->
+                <div class="oscilloscope-container">
+                    <canvas id="waveformCanvas" width="400" height="70"></canvas>
+                </div>
+            </div>
+
+            <!-- CONTROLES TÁCTICOS DE TRANSMISIÓN -->
+            <div class="transmission-controls-box">
+                <!-- Conmutador Manos Libres VOX -->
+                <div class="vox-quick-control">
+                    <label class="tactical-toggle" title="Transmisión activada por voz sin necesidad de presionar la pantalla">
+                        <input type="checkbox" id="voxHandsFreeToggle">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-text"><i class="fa-solid fa-microphone-lines"></i> MANOS LIBRES (VOX)</span>
+                    </label>
+                    <div class="vox-slider-container">
+                        <span class="sub-label">Sensibilidad:</span>
+                        <input type="range" id="voxSensitivity" min="1" max="10" value="6" step="1">
+                        <span id="voxSensLabel" class="sens-val">6 (Normal)</span>
+                    </div>
+                </div>
+
+                <!-- BOTÓN PTT GIGANTE DE ALTO CONTRASTE -->
+                <button id="emergencyPttBtn" class="big-ptt-button" aria-label="Presiona para hablar">
+                    <div class="ptt-core">
+                        <i class="fa-solid fa-microphone-lines ptt-mic-icon"></i>
+                        <span class="ptt-main-label" id="pttMainLabel">PRESIONA PARA HABLAR</span>
+                        <small class="ptt-sub-label">O pulsa Barra Espaciadora / Teclas Volumen</small>
+                    </div>
+                </button>
+
+                <!-- BOTÓN DE RESCATE SOS CRÍTICO -->
+                <button id="triggerEmergencySosBtn" class="emergency-sos-trigger-btn">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>EMITIR ALERTA S.O.S. GENERAL A TODA LA RED</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 2: TRIAGE RÁPIDO DE SOBREVIVIENTES Y CENSO -->
+        <section id="tabTriage" class="op-panel hidden">
+            <div class="section-banner">
+                <h3><i class="fa-solid fa-heart-pulse"></i> ESTADO DE TRIAGE PERSONAL</h3>
+                <p>Selecciona tu situación actual para que todos los rescatistas la visualicen en el censo:</p>
+            </div>
+
+            <!-- SELECTOR DE TRIAGE DE 4 BOTONES GIGANTES -->
+            <div class="triage-selector-grid">
+                <button class="triage-btn triage-ok active" data-triage="OK">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <strong>A SALVO / BIEN</strong>
+                    <small>Sin lesiones graves</small>
+                </button>
+                <button class="triage-btn triage-searching" data-triage="SEARCHING">
+                    <i class="fa-solid fa-person-walking"></i>
+                    <strong>ASISTIENDO / RESCATE</strong>
+                    <small>Ayudando o en búsqueda</small>
+                </button>
+                <button class="triage-btn triage-injured" data-triage="INJURED">
+                    <i class="fa-solid fa-kit-medical"></i>
+                    <strong>HERIDO / PRIMEROS AUXILIOS</strong>
+                    <small>Lesionado, requiere asistencia</small>
+                </button>
+                <button class="triage-btn triage-trapped" data-triage="TRAPPED">
+                    <i class="fa-solid fa-person-shelter"></i>
+                    <strong>ATRAPADO / RIESGO VITAL</strong>
+                    <small>Bajo escombros o peligro inminente</small>
+                </button>
+            </div>
+
+            <!-- CENSO EN TIEMPO REAL DE LA MALLA -->
+            <div class="census-container">
+                <div class="census-header">
+                    <span><i class="fa-solid fa-users"></i> CENSO DE LA RED EN MALLA:</span>
+                    <span id="meshPeersCount" class="peers-badge">1 Nodo</span>
+                </div>
+                <div class="census-list" id="censusList">
+                    <!-- Tarjetas de nodos dinámicos -->
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 3: RADAR TÁCTICO & BRÚJULA VECTORIAL (NUEVA FUNCIÓN) -->
+        <section id="tabRadar" class="op-panel hidden">
+            <div class="section-banner">
+                <h3><i class="fa-solid fa-compass"></i> RADAR TÁCTICO & BRÚJULA VECTORIAL</h3>
+                <p>Orientación espacial y distancia directa hacia sobrevivientes y heridos sin mapas ni internet.</p>
+            </div>
+
+            <!-- SELECTOR DE OBJETIVO DE RESCATE -->
+            <div class="radar-target-bar">
+                <label for="radarTargetSelect"><i class="fa-solid fa-crosshairs"></i> VÍCTIMA / OBJETIVO:</label>
+                <select id="radarTargetSelect" class="tactical-select">
+                    <option value="">-- Sin víctimas detectadas con GPS --</option>
+                </select>
+            </div>
+
+            <!-- CONTENEDOR DE LA BRÚJULA / RADAR -->
+            <div class="radar-display-container">
+                <div class="radar-compass-disc" id="radarCompassDisc">
+                    <div class="compass-cardinal compass-n">N</div>
+                    <div class="compass-cardinal compass-e">E</div>
+                    <div class="compass-cardinal compass-s">S</div>
+                    <div class="compass-cardinal compass-w">O</div>
+                    
+                    <!-- Flecha Vectorial de Rescate -->
+                    <div class="radar-arrow-wrapper" id="radarArrowWrapper">
+                        <div class="radar-arrow"></div>
+                    </div>
+
+                    <!-- Retícula Central -->
+                    <div class="radar-reticle">
+                        <i class="fa-solid fa-person-shelter" id="radarCenterIcon"></i>
+                    </div>
+                </div>
+
+                <!-- DATOS MÉTRICOS DEL VECTOR -->
+                <div class="radar-metrics-card">
+                    <div class="metric-row">
+                        <span class="metric-label">DISTANCIA DIRECTA:</span>
+                        <strong class="metric-value highlight" id="radarDistanceValue">-- m</strong>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">RUMBO / AZIMUT:</span>
+                        <strong class="metric-value" id="radarBearingValue">--° (--)</strong>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">MI POSICIÓN:</span>
+                        <span class="metric-sub" id="radarMyCoords">Esperando GPS...</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">POSICIÓN VÍCTIMA:</span>
+                        <span class="metric-sub" id="radarTargetCoords">Selecciona un objetivo</span>
+                    </div>
+                </div>
+
+                <!-- CONTROLES ADICIONALES DEL RADAR -->
+                <div class="radar-actions-row">
+                    <button id="radarSpeakHeadingBtn" class="radar-action-btn">
+                        <i class="fa-solid fa-volume-high"></i> DICTAR RUMBO (TTS)
+                    </button>
+                    <button id="radarCalibrateBtn" class="radar-action-btn secondary">
+                        <i class="fa-solid fa-arrows-rotate"></i> CALIBRAR SENSOR
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 4: BALIZA ACÚSTICA, DESTELLO FLASH Y DETECTOR DE ESCOMBROS -->
+        <section id="tabRescue" class="op-panel hidden">
+            <div class="section-banner">
+                <h3><i class="fa-solid fa-bullhorn"></i> BALIZA DE SUPERVIVENCIA Y DETECTOR</h3>
+                <p>Herramientas para localización física entre escombros o en oscuridad absoluta.</p>
+            </div>
+
+            <!-- DETECTOR DE GOLPES SOS (ACOUSTIC RESCUE SENSOR) -->
+            <div class="rescue-tool-card">
+                <div class="tool-card-title">
+                    <i class="fa-solid fa-drum"></i>
+                    <div>
+                        <strong>Detector Acústico de Escombros (Zero-Touch)</strong>
+                        <p>Monitorea golpes en tuberías o paredes. 3 impactos seguidos activan automáticamente el auxilio SOS.</p>
+                    </div>
+                </div>
+                <div class="tool-card-body">
+                    <div class="sensor-toggle-bar">
+                        <label class="tactical-toggle">
+                            <input type="checkbox" id="acousticSensorToggle">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">DETECTOR DE IMPACTOS ACTIVO</span>
+                        </label>
+                    </div>
+
+                    <!-- Indicador visual de 3 impactos rítmicos -->
+                    <div class="impact-dots-container">
+                        <div class="hit-dot" id="hitDot1" title="Primer impacto">1</div>
+                        <div class="hit-dot" id="hitDot2" title="Segundo impacto">2</div>
+                        <div class="hit-dot" id="hitDot3" title="Tercer impacto (Alerta SOS)">3</div>
+                    </div>
+                    <p id="sensorStatusText" class="sensor-status-hint">Esperando patrón de 3 golpes rítmicos...</p>
+                </div>
+            </div>
+
+            <!-- BALIZAS AUDIBLE Y VISUAL -->
+            <div class="rescue-tool-card">
+                <div class="tool-card-title">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                    <div>
+                        <strong>Baliza de Localización Sonora y Visual</strong>
+                        <p>Emite sirena de alta penetración y destellos SOS para guiar a rescatistas y perros de búsqueda.</p>
+                    </div>
+                </div>
+                <div class="tool-card-body">
+                    <div class="beacon-buttons-grid">
+                        <button id="audioBeaconBtn" class="beacon-toggle-btn">
+                            <i class="fa-solid fa-volume-high"></i>
+                            <span id="audioBeaconLabel">ACTIVAR BALIZA SONORA</span>
+                        </button>
+                        <button id="flashStrobeBtn" class="beacon-toggle-btn">
+                            <i class="fa-solid fa-bolt"></i>
+                            <span id="flashStrobeLabel">FLASH SOS ESTROBOSCÓPICO</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 5: MENSAJES TÁCTICOS Y TEXT-TO-SPEECH (LECTURA DE VOZ) -->
+        <section id="tabChat" class="op-panel hidden">
+            <!-- BARRA DE CONFIGURACIÓN TTS -->
+            <div class="tts-header-bar">
+                <label class="tactical-toggle" title="Lee en voz alta todos los mensajes recibidos para no tener que mirar el teléfono">
+                    <input type="checkbox" id="ttsAudioReadToggle" checked>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text"><i class="fa-solid fa-volume-high"></i> LECTURA POR VOZ (TTS) ACTIVA</span>
+                </label>
+            </div>
+
+            <!-- BOTONES DE MENSAJES RÁPIDOS DE EMERGENCIA -->
+            <div class="quick-emergency-messages">
+                <button class="quick-sos-msg" data-msg="¡ESTAMOS A SALVO!"><i class="fa-solid fa-check"></i> A Salvo</button>
+                <button class="quick-sos-msg" data-msg="¡NECESITAMOS BOTIQUÍN Y PRIMEROS AUXILIOS!"><i class="fa-solid fa-kit-medical"></i> Botiquín</button>
+                <button class="quick-sos-msg" data-msg="¡NECESITAMOS AGUA POTABLE!"><i class="fa-solid fa-bottle-water"></i> Agua</button>
+                <button class="quick-sos-msg" data-msg="¡ESTRUCTURA INESTABLE, EVACUAR!"><i class="fa-solid fa-person-falling-burst"></i> Derrumbe</button>
+                <button class="quick-sos-msg" data-msg="¡ATRAPADOS, HAGAN SILENCIO PARA ESCUCHAR!"><i class="fa-solid fa-hand"></i> Silencio</button>
+                <button class="quick-sos-msg" data-msg="VÍA DE EVACUACIÓN DESPEJADA"><i class="fa-solid fa-route"></i> Vía Libre</button>
+            </div>
+
+            <!-- HISTORIAL DE MENSAJES TÁCTICOS -->
+            <div class="emergency-chat-history" id="emergencyChatHistory">
+                <!-- Mensajes -->
+            </div>
+
+            <!-- ENTRADA DE TEXTO -->
+            <div class="emergency-input-bar">
+                <input type="text" id="emergencyChatInput" placeholder="Mensaje de auxilio o coordinación..." autocomplete="off">
+                <button id="emergencySendChatBtn" class="btn-send"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 6: CAJA NEGRA / BITÁCORA DE RESCATE OFFLINE (INDEXEDDB) -->
+        <section id="tabBlackbox" class="op-panel hidden">
+            <div class="section-banner">
+                <h3><i class="fa-solid fa-box-archive"></i> CAJA NEGRA / BITÁCORA FORENSE</h3>
+                <p>Registro local inmutable de alertas SOS, triages y coordenadas satelitales (almacenamiento IndexedDB).</p>
+            </div>
+
+            <!-- CONTADORES DE BITÁCORA -->
+            <div class="blackbox-stats-grid">
+                <div class="blackbox-stat-card">
+                    <span class="stat-number" id="bbTotalCount">0</span>
+                    <span class="stat-title">EVENTOS TOTALES</span>
+                </div>
+                <div class="blackbox-stat-card danger">
+                    <span class="stat-number" id="bbSosCount">0</span>
+                    <span class="stat-title">ALERTAS S.O.S.</span>
+                </div>
+                <div class="blackbox-stat-card warning">
+                    <span class="stat-number" id="bbVictimsCount">0</span>
+                    <span class="stat-title">VÍCTIMAS / HERIDOS</span>
+                </div>
+            </div>
+
+            <!-- BARRA DE ACCIONES DE BITÁCORA -->
+            <div class="blackbox-actions-bar">
+                <button id="bbExportBtn" class="bb-btn"><i class="fa-solid fa-file-arrow-down"></i> EXPORTAR BITÁCORA</button>
+                <button id="bbSpeakLastBtn" class="bb-btn"><i class="fa-solid fa-volume-high"></i> DICTAR ÚLTIMO</button>
+                <button id="bbClearBtn" class="bb-btn danger"><i class="fa-solid fa-trash-can"></i> LIMPIAR</button>
+            </div>
+
+            <!-- LÍNEA TEMPORAL DE EVENTOS HISTÓRICOS -->
+            <div class="blackbox-timeline" id="blackboxTimeline">
+                <div class="bb-empty-notice">No hay eventos grabados en la caja negra aún.</div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- MODAL GUÍA DE INSTALACIÓN IOS -->
+    <div id="iosInstallModal" class="tactical-modal hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-brands fa-apple"></i> INSTALAR EN IPHONE / IPAD</h3>
+                <button id="closeIosModalBtn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Para operar en modo táctico a pantalla completa sin distracciones ni barras de navegación:</p>
+                <ol class="ios-install-steps">
+                    <li>Toca el botón <strong>Compartir</strong> <i class="fa-solid fa-arrow-up-from-bracket"></i> en la barra de Safari.</li>
+                    <li>Desplázate y selecciona <strong>"Agregar a pantalla de inicio"</strong> <i class="fa-solid fa-square-plus"></i>.</li>
+                    <li>Toca <strong>"Agregar"</strong> en la esquina superior derecha.</li>
+                </ol>
+            </div>
+            <button id="ackIosModalBtn" class="btn-sos-ack">ENTENDIDO</button>
+        </div>
+    </div>
+
+    <!-- CARGA DE LIBRERÍAS Y SCRIPT DEL MOTOR DE EMERGENCIA -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="emergency-app.js?v=35"></script>
+</body>
+</html>
