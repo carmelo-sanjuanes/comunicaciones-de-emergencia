@@ -1,20 +1,43 @@
 /* ==========================================================================
-   MOTOR DE MISIÓN CRÍTICA: S.O.S. RESCATE (v35)
-   Audio HD Fullband | Zero-Touch | Detector de Escombros | Balizas | Triage
-   MALLA P2P WEBRTC DIRECTA | BRÚJULA RADAR GPS | CAJA NEGRA OFFLINE | PWA
+   MOTOR DE MISIÓN CRÍTICA DESCENTRALIZADO: S.O.S. RESCATE (v36)
+   100% Serverless P2P (GitHub Pages / PWA Offline) + WebRTC Directo + Auto-Mesh
+   Audio HD Fullband | Zero-Touch VOX | Detector de Escombros | Radar GPS | Caja Negra
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- CONEXIÓN SOCKET.IO ROBUSTA CON RECONEXIÓN AUTOMÁTICA ---
-    const socket = io({
-        transports: ['polling', 'websocket'],
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 15000
-    });
+    // --- 0. REGISTRO DE SERVICE WORKER PARA CACHÉ 100% OFFLINE ---
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').then(() => {
+            console.log('[PWA] Service Worker v36 registrado para operación 100% sin internet.');
+        }).catch(err => console.warn('[PWA] Advertencia SW:', err));
+    }
+
+    // --- 1. IDENTIDAD PERSISTENTE DEL NODO (SIN DEPENDER DE SERVIDOR CENTRAL) ---
+    let myNodeId = localStorage.getItem('sos_node_id');
+    if (!myNodeId) {
+        myNodeId = 'NODE-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        localStorage.setItem('sos_node_id', myNodeId);
+    }
+
+    let savedCallsign = localStorage.getItem('sos_callsign');
+    if (!savedCallsign) {
+        savedCallsign = 'RESCATE-' + Math.floor(100 + Math.random() * 899);
+        localStorage.setItem('sos_callsign', savedCallsign);
+    }
+
+    // --- 2. ADAPTADOR HÍBRIDO SOCKET.IO (OPCIONAL SI HAY SERVIDOR LOCAL) ---
+    const noopSocket = {
+        id: myNodeId,
+        connected: false,
+        emit: () => {},
+        on: () => {},
+        connect: () => {}
+    };
+    const socket = (typeof window.io === 'function') ? window.io({
+        reconnectionAttempts: 3,
+        timeout: 4000
+    }) : noopSocket;
 
     // --- ELEMENTOS DEL DOM ---
     const meshStatusBadge = document.getElementById('meshStatusBadge');
@@ -96,6 +119,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const bbClearBtn = document.getElementById('bbClearBtn');
     const blackboxTimeline = document.getElementById('blackboxTimeline');
 
+    // Modal P2P Offline
+    const p2pOfflineModal = document.getElementById('p2pOfflineModal');
+    const closeP2pModalBtn = document.getElementById('closeP2pModalBtn');
+    const btnCreateP2pOffer = document.getElementById('btnCreateP2pOffer');
+    const btnAcceptP2pStep = document.getElementById('btnAcceptP2pStep');
+    const p2pQrContainer = document.getElementById('p2pQrContainer');
+    const p2pTokenBox = document.getElementById('p2pTokenBox');
+    const btnCopyP2pToken = document.getElementById('btnCopyP2pToken');
+    const btnConnectP2pToken = document.getElementById('btnConnectP2pToken');
+
     // Modal iOS PWA
     const iosInstallModal = document.getElementById('iosInstallModal');
     const closeIosModalBtn = document.getElementById('closeIosModalBtn');
@@ -103,7 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ESTADO LOCAL DEL DISPOSITIVO ---
     let myProfile = {
-        callsign: 'RESCATE-01',
+        id: myNodeId,
+        callsign: savedCallsign,
         channel: 1,
         status: 'IDLE',
         triage: 'OK',
@@ -111,9 +145,15 @@ document.addEventListener('DOMContentLoaded', () => {
         location: null
     };
 
+    if (emergencyCallsignInput) {
+        emergencyCallsignInput.value = myProfile.callsign;
+    }
+
+    const discoveredPeers = new Map(); // nodeId -> peerProfile
     let latestPeers = [];
     let isTransmitting = false;
     let isReceiving = false;
+    let rxTimeoutTimer = null;
     let isVoxActive = false;
     let isVoxTransmitting = false;
     let isVoxRequestPending = false;
@@ -129,11 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 screenWakeLock.addEventListener('release', () => {
                     screenWakeLock = null;
                 });
-                console.log('[WakeLock] Pantalla bloqueada contra apagado automático.');
             }
-        } catch (err) {
-            console.warn('[WakeLock] No soportado o denegado por el navegador:', err.message);
-        }
+        } catch (err) {}
     }
 
     // --- MOTOR WEB AUDIO NATIVO Y PIPELINE PERSISTENTE ---
@@ -153,20 +190,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let torchTrack = null;
     let strobeInterval = null;
 
-    // Métricas del Sensor Acústico de Escombros
     let hitTimestamps = [];
     let lastSensorAnalysisTime = 0;
-
-    // Control del Visualizador Canvas (0% de CPU en reposo)
     let visualizerAnimId = null;
 
-    // Desduplicación Malla
+    // Desduplicación Universal Malla
     const seenMeshMsgs = new Set();
     function registerMeshMsg(msgId) {
         if (!msgId) return false;
         if (seenMeshMsgs.has(msgId)) return true;
         seenMeshMsgs.add(msgId);
-        if (seenMeshMsgs.size > 1000) {
+        if (seenMeshMsgs.size > 1500) {
             const first = seenMeshMsgs.values().next().value;
             seenMeshMsgs.delete(first);
         }
@@ -198,7 +232,16 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener(ev, unlockAudioAndWake, { passive: true });
     });
 
-    // --- RE-MUESTREO Y CONVERSIÓN DE PAQUETES BINARIOS ---
+    // --- CONVERSIÓN COMPACTA BASE64 Y RE-MUESTREO ---
+    function int16ToBase64(int16Arr) {
+        const u8 = new Uint8Array(int16Arr.buffer, int16Arr.byteOffset, int16Arr.byteLength);
+        let binary = '';
+        for (let i = 0; i < u8.length; i++) {
+            binary += String.fromCharCode(u8[i]);
+        }
+        return btoa(binary);
+    }
+
     function resampleFloatArray(inputSamples, fromRate, toRate) {
         if (fromRate === toRate || !fromRate || !toRate) return inputSamples;
         const ratio = fromRate / toRate;
@@ -216,6 +259,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getInt16ArrayFromPayload(rawPcm) {
         if (!rawPcm) return new Int16Array(0);
+        if (typeof rawPcm === 'string') {
+            try {
+                const binary = atob(rawPcm);
+                const len = binary.length - (binary.length % 2);
+                const u8 = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    u8[i] = binary.charCodeAt(i);
+                }
+                return new Int16Array(u8.buffer);
+            } catch (e) {
+                return new Int16Array(0);
+            }
+        }
         if (rawPcm instanceof Int16Array) return rawPcm;
         if (rawPcm instanceof ArrayBuffer) {
             const len = rawPcm.byteLength - (rawPcm.byteLength % 2);
@@ -232,9 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return getInt16ArrayFromPayload(rawPcm.data);
         }
         if (Array.isArray(rawPcm)) {
-            const u8 = new Uint8Array(rawPcm);
-            const len = u8.byteLength - (u8.byteLength % 2);
-            return new Int16Array(u8.buffer, 0, len / 2);
+            return new Int16Array(rawPcm);
         }
         return new Int16Array(0);
     }
@@ -266,19 +320,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return rxMasterBus;
     }
 
-    function playAudioChunk(chunkPayload) {
+    function playAudioChunk(chunkPayload, senderCallsign = 'PAR') {
         try {
             unlockAudioAndWake();
             const ctx = getAudioContext();
-            const rawPcm = chunkPayload.pcm || chunkPayload;
-            const senderSr = chunkPayload.sr || ctx.sampleRate;
+            const rawPcm = chunkPayload.b64 || chunkPayload.pcm || chunkPayload;
+            const senderSr = chunkPayload.sr || 24000;
 
             const int16Array = getInt16ArrayFromPayload(rawPcm);
             if (int16Array.length === 0) return;
 
+            if (!isReceiving) {
+                isReceiving = true;
+                intercomStatusBox.className = 'tx-rx-status receiving';
+                intercomStatusLabel.textContent = `RECIBIENDO: ${senderCallsign}`;
+                statusPulseIcon.className = 'fa-solid fa-volume-high';
+                startVisualizer();
+            }
+
+            if (rxTimeoutTimer) clearTimeout(rxTimeoutTimer);
+            rxTimeoutTimer = setTimeout(() => {
+                isReceiving = false;
+                intercomStatusBox.className = 'tx-rx-status';
+                intercomStatusLabel.textContent = 'LISTO - CANAL DESPEJADO';
+                statusPulseIcon.className = 'fa-solid fa-wave-square';
+                stopVisualizer();
+            }, 650);
+
             let floatSamples = new Float32Array(int16Array.length);
             for (let i = 0; i < int16Array.length; i++) {
-                floatSamples[i] = (int16Array[i] / 32768.0) * 1.6;
+                floatSamples[i] = (int16Array[i] / 32768.0) * 1.65;
             }
 
             if (senderSr !== ctx.sampleRate) {
@@ -293,8 +364,8 @@ document.addEventListener('DOMContentLoaded', () => {
             source.connect(getRxMasterBus(ctx));
 
             const now = ctx.currentTime;
-            if (nextPlayTime < now || (nextPlayTime - now) > 0.07) {
-                nextPlayTime = now + 0.012;
+            if (nextPlayTime < now || (nextPlayTime - now) > 0.12) {
+                nextPlayTime = now + 0.015;
             }
 
             source.start(nextPlayTime);
@@ -320,13 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ctx = getAudioContext();
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-                    if (confirm('El acceso al micrófono requiere la versión HTTPS segura.\n\n¿Deseas abrir la versión HTTPS ahora?')) {
-                        window.location.href = `https://${location.hostname}/emergency`;
-                        return false;
-                    }
-                }
-                alert('Navegador incompatible con captura de audio sin HTTPS.');
+                alert('Tu navegador requiere HTTPS para habilitar el micrófono.');
                 isInitializingMic = false;
                 return false;
             }
@@ -345,7 +410,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             micStream.getAudioTracks().forEach(track => {
                 track.onended = () => {
-                    console.warn('[Mic] Pista de audio finalizada por el SO.');
                     isMicReady = false;
                 };
             });
@@ -389,8 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (!isTransmitting && !isVoxRequestPending) {
                             isVoxTransmitting = true;
-                            isVoxRequestPending = true;
-                            socket.emit('REQUEST_TRANSMIT');
+                            startTransmitting();
                         }
                     } else if (rms <= voxThreshold && isVoxTransmitting && isTransmitting) {
                         if (!voxHangoverTimer) {
@@ -402,31 +465,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (isTransmitting) {
-                    const pcm16 = new Int16Array(inputData.length);
-                    for (let i = 0; i < inputData.length; i++) {
-                        let sample = inputData[i] * 1.15;
+                    // Sub-muestrear a 24kHz Wideband HD para máxima velocidad en WebRTC y Malla P2P
+                    const targetSr = 24000;
+                    const resampled = resampleFloatArray(inputData, ctx.sampleRate, targetSr);
+                    const pcm16 = new Int16Array(resampled.length);
+                    for (let i = 0; i < resampled.length; i++) {
+                        let sample = resampled[i] * 1.15;
                         if (sample > 0.95) sample = 0.95;
                         else if (sample < -0.95) sample = -0.95;
                         pcm16[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
                     }
 
-                    // 1. Enviar por Socket.IO al servidor base
-                    socket.emit('AUDIO_STREAM', {
-                        sr: ctx.sampleRate,
-                        pcm: pcm16.buffer
-                    });
+                    const b64Audio = int16ToBase64(pcm16);
+                    const packetId = `AUD-${myNodeId}-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+                    registerMeshMsg(packetId);
 
-                    // 2. Transmisión directa WebRTC P2P (Respaldo por si el servidor base cae)
-                    broadcastToP2PMesh({
+                    const audioPacket = {
                         type: 'AUDIO_CHUNK',
-                        msgId: `P2P-AUD-${myProfile.callsign}-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+                        msgId: packetId,
+                        originId: myNodeId,
                         channel: myProfile.channel,
                         callsign: myProfile.callsign,
                         data: {
-                            sr: ctx.sampleRate,
-                            pcm: Array.from(pcm16)
+                            sr: targetSr,
+                            b64: b64Audio
                         }
-                    });
+                    };
+
+                    // Enviar por Malla P2P WebRTC directa + Broker Descentralizado
+                    broadcastMeshPacket(audioPacket);
+
+                    // Si además hay un servidor local Socket.IO conectado:
+                    if (socket && socket.connected) {
+                        socket.emit('AUDIO_STREAM', {
+                            sr: targetSr,
+                            pcm: pcm16.buffer
+                        });
+                    }
                 }
             };
 
@@ -593,21 +668,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if ('vibrate' in navigator) navigator.vibrate([300, 100, 300, 100, 300]);
         speakEmergencyMessage('Patrón de rescate detectado. Alerta S O S transmitida a la red.', true);
 
-        const sosPayload = {
-            message: '¡3 IMPACTOS RÍTMICOS DETECTADOS! (Posible sobreviviente bajo escombros)',
-            location: myProfile.location
-        };
-
-        socket.emit('SEND_SOS', sosPayload);
-        broadcastToP2PMesh({
-            type: 'SOS_ALERT',
-            id: `SOS-ACOUSTIC-${Date.now()}`,
-            callsign: myProfile.callsign,
-            message: sosPayload.message,
-            location: myProfile.location
-        });
-
-        logBlackboxEvent('SOS', 'ALERTA SOS ACÚSTICA', '3 golpes detectados en escombros', myProfile.location);
+        const sosMsg = '¡3 IMPACTOS RÍTMICOS DETECTADOS! (Posible sobreviviente bajo escombros)';
+        emitUniversalSos(sosMsg);
         startAudioBeacon();
     }
 
@@ -626,12 +688,31 @@ document.addEventListener('DOMContentLoaded', () => {
             utterance.pitch = isHighPriority ? 1.2 : 1.0;
             utterance.volume = 1.0;
             window.speechSynthesis.speak(utterance);
-        } catch (e) {
-            console.error('[TTS] Error en síntesis de voz:', e);
-        }
+        } catch (e) {}
     }
 
-    // --- GESTIÓN DE TRANSMISIÓN PTT ---
+    // --- GESTIÓN DE TRANSMISIÓN PTT INSTANTÁNEA (SERVERLESS & LOCAL) ---
+    function grantTransmitState() {
+        isTransmitting = true;
+        isVoxRequestPending = false;
+        emergencyPttBtn.classList.add('transmitting');
+        pttMainLabel.textContent = isVoxTransmitting ? 'VOX HABLANDO...' : 'TRANSMITIENDO...';
+        intercomStatusBox.className = 'tx-rx-status transmitting';
+        intercomStatusLabel.textContent = `TRANSMITIENDO EN VIVO (CH ${myProfile.channel})`;
+        statusPulseIcon.className = 'fa-solid fa-microphone-lines';
+
+        if ('vibrate' in navigator) navigator.vibrate(40);
+        startVisualizer();
+
+        broadcastMeshPacket({
+            type: 'TRANSMIT_START',
+            msgId: `TXS-${myNodeId}-${Date.now()}`,
+            originId: myNodeId,
+            callsign: myProfile.callsign,
+            channel: myProfile.channel
+        });
+    }
+
     async function startTransmitting() {
         if (isTransmitting || isReceiving) return;
         unlockAudioAndWake();
@@ -641,7 +722,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!ok) return;
         }
 
-        socket.emit('REQUEST_TRANSMIT');
+        if (socket && socket.connected) {
+            socket.emit('REQUEST_TRANSMIT');
+        } else {
+            // En modo Serverless P2P (GitHub Pages / Offline), conceder transmisión al instante (0ms)
+            grantTransmitState();
+        }
     }
 
     function stopTransmitting() {
@@ -662,10 +748,15 @@ document.addEventListener('DOMContentLoaded', () => {
             statusPulseIcon.className = 'fa-solid fa-wave-square';
 
             stopVisualizer();
-            socket.emit('STOP_TRANSMIT');
 
-            broadcastToP2PMesh({
+            if (socket && socket.connected) {
+                socket.emit('STOP_TRANSMIT');
+            }
+
+            broadcastMeshPacket({
                 type: 'TRANSMIT_END',
+                msgId: `TXE-${myNodeId}-${Date.now()}`,
+                originId: myNodeId,
                 callsign: myProfile.callsign,
                 channel: myProfile.channel
             });
@@ -688,7 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
     emergencyPttBtn.addEventListener('contextmenu', e => e.preventDefault());
 
     window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+        if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
             e.preventDefault();
             startTransmitting();
         }
@@ -698,13 +789,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('keyup', (e) => {
-        if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+        if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
             e.preventDefault();
             stopTransmitting();
         }
     });
 
-    // Control VOX Manos Libres
     voxHandsFreeToggle.addEventListener('change', async () => {
         unlockAudioAndWake();
         isVoxActive = voxHandsFreeToggle.checked;
@@ -731,26 +821,37 @@ document.addEventListener('DOMContentLoaded', () => {
     emergencyChannelSelect.addEventListener('change', () => {
         const chanId = parseInt(emergencyChannelSelect.value, 10);
         myProfile.channel = chanId;
-        socket.emit('CHANGE_CHANNEL', chanId);
+        if (socket && socket.connected) socket.emit('CHANGE_CHANNEL', chanId);
+        sendPresenceHeartbeat();
         speakEmergencyMessage(`Canal ${chanId} sintonizado`);
     });
+
+    function emitUniversalSos(messageText) {
+        const sosId = `SOS-${myNodeId}-${Date.now()}`;
+        registerMeshMsg(sosId);
+
+        const sosPacket = {
+            type: 'SOS_ALERT',
+            msgId: sosId,
+            id: sosId,
+            originId: myNodeId,
+            callsign: myProfile.callsign,
+            channel: myProfile.channel,
+            message: messageText,
+            location: myProfile.location
+        };
+
+        if (socket && socket.connected) {
+            socket.emit('SEND_SOS', sosPacket);
+        }
+        broadcastMeshPacket(sosPacket);
+        logBlackboxEvent('SOS', 'ALERTA SOS EMITIDA', messageText, myProfile.location);
+    }
 
     triggerEmergencySosBtn.addEventListener('click', () => {
         const ok = confirm('¿Confirmas la transmisión de una ALERTA SOS a toda la red?');
         if (ok) {
-            const sosData = {
-                message: '¡SOLICITUD DE AUXILIO Y RESCATE INMEDIATO!',
-                location: myProfile.location
-            };
-            socket.emit('SEND_SOS', sosData);
-            broadcastToP2PMesh({
-                type: 'SOS_ALERT',
-                id: `SOS-BTN-${Date.now()}`,
-                callsign: myProfile.callsign,
-                message: sosData.message,
-                location: myProfile.location
-            });
-            logBlackboxEvent('SOS', 'ALERTA SOS MANUAL', sosData.message, myProfile.location);
+            emitUniversalSos('¡SOLICITUD DE AUXILIO Y RESCATE INMEDIATO!');
             startAudioBeacon();
         }
     });
@@ -758,7 +859,13 @@ document.addEventListener('DOMContentLoaded', () => {
     silenceSosAlarmBtn.addEventListener('click', () => {
         criticalSosBanner.classList.add('hidden');
         stopAudioBeacon();
-        socket.emit('CANCEL_SOS');
+        if (socket && socket.connected) socket.emit('CANCEL_SOS');
+        broadcastMeshPacket({
+            type: 'SOS_CANCELLED',
+            msgId: `SOSC-${myNodeId}-${Date.now()}`,
+            originId: myNodeId,
+            callsign: myProfile.callsign
+        });
     });
 
     // --- BALIZA SONORA DE LOCALIZACIÓN ---
@@ -791,9 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activeBeaconOsc = { osc, gain, interval: beaconInterval };
             audioBeaconBtn.classList.add('active');
             audioBeaconLabel.textContent = 'DETENER BALIZA SONORA';
-        } catch (e) {
-            console.error('[Beacon] Error iniciando baliza sonora:', e);
-        }
+        } catch (e) {}
     }
 
     function stopAudioBeacon() {
@@ -828,9 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 torchTrack = stream.getVideoTracks()[0];
             }
-        } catch (e) {
-            console.log('[Strobe] Torch de cámara no accesible, usando flash en pantalla.');
-        }
+        } catch (e) {}
 
         let step = 0;
         strobeInterval = setInterval(() => {
@@ -879,8 +982,20 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.add('active');
 
             myProfile.triage = triageVal;
-            socket.emit('UPDATE_TRIAGE', triageVal);
-            socket.emit('UPDATE_PROFILE', { triage: triageVal });
+            if (socket && socket.connected) {
+                socket.emit('UPDATE_TRIAGE', triageVal);
+                socket.emit('UPDATE_PROFILE', { triage: triageVal });
+            }
+
+            sendPresenceHeartbeat();
+            broadcastMeshPacket({
+                type: 'TRIAGE_ANNOUNCED',
+                msgId: `TRI-${myNodeId}-${Date.now()}`,
+                originId: myNodeId,
+                callsign: myProfile.callsign,
+                triage: triageVal,
+                location: myProfile.location
+            });
 
             const labels = {
                 'OK': 'A salvo y sin lesiones',
@@ -891,8 +1006,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             logBlackboxEvent('TRIAGE', `TRIAGE ACTUALIZADO: ${triageVal}`, labels[triageVal] || triageVal);
             speakEmergencyMessage(`Triage actualizado a: ${labels[triageVal] || triageVal}`);
+            rebuildPeerListUI();
         });
     });
+
+    function rebuildPeerListUI() {
+        const now = Date.now();
+        // Limpiar nodos inactivos de más de 18 segundos
+        discoveredPeers.forEach((val, key) => {
+            if (now - (val.lastSeen || 0) > 18000 && !webrtcPeers.has(key)) {
+                discoveredPeers.delete(key);
+            }
+        });
+
+        const allPeers = [myProfile, ...Array.from(discoveredPeers.values())];
+        renderCensusList(allPeers);
+    }
 
     function renderCensusList(peers) {
         latestPeers = peers;
@@ -904,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const triageKey = (peer.triage || 'OK').toLowerCase();
             card.className = `census-card status-${triageKey}`;
 
-            const isMe = peer.id === socket.id ? ' (ESTE TELÉFONO)' : '';
+            const isMe = (peer.id === myNodeId || peer.id === socket.id) ? ' (ESTE TELÉFONO)' : '';
             const triageTitles = {
                 'ok': 'A SALVO',
                 'searching': 'ASISTIENDO',
@@ -927,9 +1056,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // Al hacer clic en un nodo del censo, enfocarlo en el Radar GPS
             card.addEventListener('click', () => {
-                if (peer.location) {
+                if (peer.location && peer.id !== myNodeId) {
                     navButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === 'tabRadar'));
                     opPanels.forEach(p => p.classList.toggle('hidden', p.id !== 'tabRadar'));
                     radarTargetSelect.value = peer.id;
@@ -971,29 +1099,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function sendTacticalText(text) {
-        const payload = {
-            text,
-            location: myProfile.location
-        };
+        const msgId = `MSG-${myNodeId}-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+        registerMeshMsg(msgId);
 
-        socket.emit('SEND_TACTICAL_TEXT', payload);
-
-        broadcastToP2PMesh({
+        const chatPacket = {
             type: 'TACTICAL_TEXT',
-            id: `P2P-MSG-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+            msgId,
+            id: msgId,
+            originId: myNodeId,
             callsign: myProfile.callsign,
             channel: myProfile.channel,
             text,
             location: myProfile.location,
             timestamp: new Date().toLocaleTimeString()
-        });
+        };
+
+        addChatMessage(chatPacket);
+        broadcastMeshPacket(chatPacket);
+
+        if (socket && socket.connected) {
+            socket.emit('SEND_TACTICAL_TEXT', {
+                text,
+                location: myProfile.location
+            });
+        }
 
         logBlackboxEvent('TEXT', `MENSAJE DE ${myProfile.callsign}`, text, myProfile.location);
     }
 
     function addChatMessage(data) {
         const bubble = document.createElement('div');
-        const isMe = (data.callsign === myProfile.callsign);
+        const isMe = (data.callsign === myProfile.callsign || data.originId === myNodeId);
         bubble.className = `chat-bubble ${isMe ? 'me' : ''}`;
 
         bubble.innerHTML = `
@@ -1031,7 +1167,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- MODO APAGÓN OLED (AHORRO MÁXIMO DE ENERGÍA) ---
     blackoutToggleBtn.addEventListener('click', () => {
         oledBlackoutOverlay.classList.remove('hidden');
         speakEmergencyMessage('Modo apagón de batería activado. La radio sigue operando.');
@@ -1045,21 +1180,201 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ==========================================================================
-    // CAPACIDAD 1: MALLA P2P WEBRTC DIRECTA (CELULAR A CELULAR SIN SERVIDOR)
+    // MOTOR SERVERLESS P2P DESCENTRALIZADO (AUTO-MESH + WEBRTC DIRECTO + OFFLINE QR)
     // ==========================================================================
     const webrtcPeers = new Map(); // targetId -> { pc, dc, callsign }
+    let mqttClient = null;
+    const MESH_TOPIC_ROOT = 'sos-rescate-mesh-v36-global/room';
+    const localTabChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('sos_rescate_mesh_v36') : null;
 
+    if (localTabChannel) {
+        localTabChannel.onmessage = (ev) => {
+            if (ev.data) handleIncomingMeshPacket(ev.data);
+        };
+    }
+
+    function initServerlessAutoMesh() {
+        if (typeof window.mqtt === 'undefined') {
+            console.warn('[Auto-Mesh] Librería MQTT no disponible (modo 100% offline local activo).');
+            return;
+        }
+
+        const brokers = [
+            'wss://broker.emqx.io:8084/mqtt',
+            'wss://broker.hivemq.com:8884/mqtt'
+        ];
+
+        try {
+            mqttClient = window.mqtt.connect(brokers[0], {
+                clientId: 'sos_' + myNodeId + '_' + Math.floor(Math.random() * 9999),
+                clean: true,
+                connectTimeout: 6000,
+                reconnectPeriod: 3000
+            });
+
+            mqttClient.on('connect', () => {
+                meshStatusBadge.querySelector('.mesh-dot').className = 'mesh-dot online';
+                meshStatusText.textContent = 'MALLA P2P ACTIVA';
+                mqttClient.subscribe(MESH_TOPIC_ROOT, { qos: 0 });
+                sendPresenceHeartbeat();
+            });
+
+            mqttClient.on('message', (topic, payloadBuf) => {
+                try {
+                    const packet = JSON.parse(payloadBuf.toString());
+                    handleIncomingMeshPacket(packet);
+                } catch (e) {}
+            });
+
+            mqttClient.on('offline', () => {
+                if (webrtcPeers.size === 0) {
+                    meshStatusText.textContent = 'MODO OFFLINE P2P';
+                }
+            });
+        } catch (err) {
+            console.warn('[Auto-Mesh] Operando en modo directo offline:', err);
+        }
+    }
+
+    function sendPresenceHeartbeat() {
+        const hbPacket = {
+            type: 'PEER_HEARTBEAT',
+            msgId: `HB-${myNodeId}-${Date.now()}`,
+            originId: myNodeId,
+            profile: {
+                id: myNodeId,
+                callsign: myProfile.callsign,
+                channel: myProfile.channel,
+                triage: myProfile.triage,
+                battery: myProfile.battery,
+                location: myProfile.location,
+                lastSeen: Date.now()
+            }
+        };
+        broadcastMeshPacket(hbPacket);
+    }
+
+    // Enviar latido de presencia cada 4 segundos para auto-descubrimiento celular a celular
+    setInterval(() => {
+        sendPresenceHeartbeat();
+        rebuildPeerListUI();
+    }, 4000);
+
+    function broadcastMeshPacket(packet) {
+        const jsonStr = JSON.stringify(packet);
+
+        // 1. Enviar por todos los enlaces directos WebRTC Celular-a-Celular abiertos
+        webrtcPeers.forEach(peer => {
+            if (peer.dc && peer.dc.readyState === 'open') {
+                try { peer.dc.send(jsonStr); } catch (e) {}
+            }
+        });
+
+        // 2. Enviar por pestaña local BroadcastChannel
+        if (localTabChannel) {
+            try { localTabChannel.postMessage(packet); } catch (e) {}
+        }
+
+        // 3. Enviar por Broker Descentralizado WSS (si hay conexión)
+        if (mqttClient && mqttClient.connected) {
+            try { mqttClient.publish(MESH_TOPIC_ROOT, jsonStr, { qos: 0 }); } catch (e) {}
+        }
+    }
+
+    function handleIncomingMeshPacket(packet) {
+        if (!packet || !packet.type) return;
+        if (packet.originId === myNodeId) return; // Ignorar mis propios paquetes
+
+        if (packet.type === 'PEER_HEARTBEAT' && packet.profile) {
+            const p = packet.profile;
+            p.lastSeen = Date.now();
+            const isNew = !discoveredPeers.has(p.id);
+            discoveredPeers.set(p.id, p);
+            if (isNew) {
+                rebuildPeerListUI();
+                // Responder inmediatamente con mi presencia para que me vea al instante
+                setTimeout(sendPresenceHeartbeat, 200);
+            }
+            return;
+        }
+
+        if (packet.type === 'WEBRTC_SIGNAL') {
+            if (packet.targetId === myNodeId) {
+                handleIncomingWebRtcSignal(packet.originId, packet.senderCallsign, packet.signal);
+            }
+            return;
+        }
+
+        const msgId = packet.msgId || packet.id;
+        if (registerMeshMsg(msgId)) return; // Desduplicar paquete
+
+        if (packet.type === 'AUDIO_CHUNK') {
+            if (packet.channel === myProfile.channel && !isTransmitting) {
+                playAudioChunk(packet.data, packet.callsign);
+            }
+        } else if (packet.type === 'TRANSMIT_START') {
+            if (packet.channel === myProfile.channel && !isTransmitting) {
+                isReceiving = true;
+                nextPlayTime = 0;
+                intercomStatusBox.className = 'tx-rx-status receiving';
+                intercomStatusLabel.textContent = `RECIBIENDO: ${packet.callsign}`;
+                statusPulseIcon.className = 'fa-solid fa-volume-high';
+                startVisualizer();
+            }
+        } else if (packet.type === 'TRANSMIT_END') {
+            if (packet.channel === myProfile.channel) {
+                isReceiving = false;
+                nextPlayTime = 0;
+                intercomStatusBox.className = 'tx-rx-status';
+                intercomStatusLabel.textContent = 'LISTO - CANAL DESPEJADO';
+                statusPulseIcon.className = 'fa-solid fa-wave-square';
+                stopVisualizer();
+            }
+        } else if (packet.type === 'SOS_ALERT') {
+            showCriticalSosBanner(packet);
+            if ('vibrate' in navigator) navigator.vibrate([400, 150, 400, 150, 400]);
+            speakEmergencyMessage(`¡Atención! Alerta de auxilio emitida por ${packet.callsign}. ${packet.message}`, true);
+            logBlackboxEvent('SOS', `ALERTA SOS P2P: ${packet.callsign}`, packet.message, packet.location);
+            startAudioBeacon();
+        } else if (packet.type === 'SOS_CANCELLED') {
+            criticalSosBanner.classList.add('hidden');
+            stopAudioBeacon();
+        } else if (packet.type === 'TACTICAL_TEXT') {
+            addChatMessage(packet);
+            logBlackboxEvent('TEXT', `TEXTO DE ${packet.callsign}`, packet.text, packet.location);
+        } else if (packet.type === 'TRIAGE_ANNOUNCED') {
+            speakEmergencyMessage(`Actualización: ${packet.callsign} cambió su estado a ${packet.triage}`);
+            logBlackboxEvent('TRIAGE', `TRIAGE: ${packet.callsign}`, `Estado: ${packet.triage}`, packet.location);
+        }
+    }
+
+    // --- NEGOCIACIÓN AUTOMÁTICA WEBRTC CELULAR A CELULAR ---
     function updateP2PStatusUI() {
         let activeCount = 0;
         webrtcPeers.forEach(peer => {
             if (peer.dc && peer.dc.readyState === 'open') activeCount++;
         });
 
-        p2pMeshText.textContent = `${activeCount} P2P`;
+        p2pMeshText.textContent = activeCount > 0 ? `${activeCount} P2P DIRECTO` : 'ENLAZAR P2P';
         if (activeCount > 0) {
             p2pMeshChip.classList.add('active');
+            meshStatusBadge.querySelector('.mesh-dot').className = 'mesh-dot online';
+            meshStatusText.textContent = 'P2P CELULAR A CELULAR';
         } else {
             p2pMeshChip.classList.remove('active');
+        }
+    }
+
+    function sendWebRtcSignal(targetId, signalData) {
+        broadcastMeshPacket({
+            type: 'WEBRTC_SIGNAL',
+            originId: myNodeId,
+            senderCallsign: myProfile.callsign,
+            targetId,
+            signal: signalData
+        });
+        if (socket && socket.connected) {
+            socket.emit('WEBRTC_SIGNAL', { targetId, signal: signalData });
         }
     }
 
@@ -1067,9 +1382,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.RTCPeerConnection) return;
 
         peers.forEach(peer => {
-            if (peer.id !== socket.id && !webrtcPeers.has(peer.id)) {
-                // Para evitar colisiones en la negociación, el ID menor ofrece la conexión
-                if (socket.id && socket.id < peer.id) {
+            if (peer.id && peer.id !== myNodeId && !webrtcPeers.has(peer.id)) {
+                if (myNodeId < peer.id) {
                     initiatePeerConnection(peer.id, peer.callsign);
                 }
             }
@@ -1086,10 +1400,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                socket.emit('WEBRTC_SIGNAL', {
-                    targetId,
-                    signal: { candidate: event.candidate }
-                });
+                sendWebRtcSignal(targetId, { candidate: event.candidate });
             }
         };
 
@@ -1105,27 +1416,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupDataChannel(dc, targetId, targetCallsign) {
         dc.onopen = () => {
-            console.log(`[P2P] Enlace directo de datos abierto con ${targetCallsign}`);
             updateP2PStatusUI();
-            logBlackboxEvent('P2P', 'ENLACE DIRECTO P2P ESTABLECIDO', `Conexión malla sin intermediarios con ${targetCallsign}`);
+            sendPresenceHeartbeat();
+            logBlackboxEvent('P2P', 'ENLACE P2P CELULAR A CELULAR ACTIVO', `Conectado directamente con ${targetCallsign}`);
         };
 
         dc.onclose = () => {
-            console.log(`[P2P] Enlace de datos cerrado con ${targetCallsign}`);
             updateP2PStatusUI();
-        };
-
-        dc.onerror = (err) => {
-            console.warn(`[P2P] Error en canal de datos con ${targetCallsign}:`, err);
         };
 
         dc.onmessage = (event) => {
             try {
                 const packet = JSON.parse(event.data);
-                handleIncomingP2PPacket(packet, targetCallsign);
-            } catch (e) {
-                console.error('[P2P] Error procesando paquete directo:', e);
-            }
+                handleIncomingMeshPacket(packet);
+            } catch (e) {}
         };
     }
 
@@ -1140,21 +1444,14 @@ document.addEventListener('DOMContentLoaded', () => {
             pc.createOffer()
                 .then(offer => pc.setLocalDescription(offer))
                 .then(() => {
-                    socket.emit('WEBRTC_SIGNAL', {
-                        targetId,
-                        signal: { sdp: pc.localDescription }
-                    });
+                    sendWebRtcSignal(targetId, { sdp: pc.localDescription });
                 })
-                .catch(err => console.warn('[P2P] Error creando oferta WebRTC:', err));
-        } catch(e) {
-            console.warn('[P2P] Fallo al iniciar PeerConnection:', e);
-        }
+                .catch(() => {});
+        } catch (e) {}
     }
 
-    socket.on('WEBRTC_SIGNAL', async (data) => {
-        const { senderId, senderCallsign, signal } = data;
+    async function handleIncomingWebRtcSignal(senderId, senderCallsign, signal) {
         if (!senderId || !signal) return;
-
         let peerObj = webrtcPeers.get(senderId);
 
         if (signal.sdp) {
@@ -1172,72 +1469,148 @@ document.addEventListener('DOMContentLoaded', () => {
                     await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
-
-                    socket.emit('WEBRTC_SIGNAL', {
-                        targetId: senderId,
-                        signal: { sdp: pc.localDescription }
-                    });
-                } catch(e) {
-                    console.error('[P2P] Error procesando oferta remota:', e);
-                }
+                    sendWebRtcSignal(senderId, { sdp: pc.localDescription });
+                } catch (e) {}
             } else if (signal.sdp.type === 'answer' && peerObj) {
                 try {
                     await peerObj.pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-                } catch(e) {
-                    console.error('[P2P] Error configurando respuesta remota:', e);
-                }
+                } catch (e) {}
             }
         } else if (signal.candidate && peerObj) {
             try {
                 await peerObj.pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-            } catch(e) {
-                console.error('[P2P] Error añadiendo candidato ICE:', e);
-            }
+            } catch (e) {}
         }
-    });
+    }
 
-    function broadcastToP2PMesh(packet) {
-        const json = JSON.stringify(packet);
-        webrtcPeers.forEach(peer => {
-            if (peer.dc && peer.dc.readyState === 'open') {
-                try {
-                    peer.dc.send(json);
-                } catch(e) {}
+    // --- EMPAREJAMIENTO MANUAL / QR 100% OFFLINE (HOTSPOT SIN INTERNET) ---
+    let manualOfflinePc = null;
+
+    if (p2pMeshChip) {
+        p2pMeshChip.addEventListener('click', () => {
+            p2pOfflineModal.classList.remove('hidden');
+        });
+    }
+    if (closeP2pModalBtn) {
+        closeP2pModalBtn.addEventListener('click', () => {
+            p2pOfflineModal.classList.add('hidden');
+        });
+    }
+
+    function renderQrToken(tokenStr) {
+        if (!p2pQrContainer || typeof window.QRCode === 'undefined') return;
+        p2pQrContainer.innerHTML = '';
+        p2pQrContainer.classList.remove('hidden');
+        try {
+            new window.QRCode(p2pQrContainer, {
+                text: tokenStr,
+                width: 170,
+                height: 170,
+                correctLevel: window.QRCode.CorrectLevel.L
+            });
+        } catch (e) {
+            p2pQrContainer.classList.add('hidden');
+        }
+    }
+
+    if (btnCreateP2pOffer) {
+        btnCreateP2pOffer.addEventListener('click', async () => {
+            p2pTokenBox.value = 'Generando llave P2P local (espera 1 segundo)...';
+            manualOfflinePc = new RTCPeerConnection({ iceServers: [] });
+            const dc = manualOfflinePc.createDataChannel('sos_offline_p2p', { ordered: false, maxRetransmits: 0 });
+            const peerTempId = 'OFFLINE-' + Date.now();
+            setupDataChannel(dc, peerTempId, 'PAR-OFFLINE');
+            webrtcPeers.set(peerTempId, { pc: manualOfflinePc, dc, callsign: 'PAR-OFFLINE' });
+
+            manualOfflinePc.onicecandidate = (e) => {
+                if (!e.candidate && manualOfflinePc.localDescription) {
+                    const token = btoa(JSON.stringify({
+                        t: 'O',
+                        id: myNodeId,
+                        cs: myProfile.callsign,
+                        sdp: manualOfflinePc.localDescription
+                    }));
+                    p2pTokenBox.value = token;
+                    renderQrToken(token);
+                }
+            };
+
+            const offer = await manualOfflinePc.createOffer();
+            await manualOfflinePc.setLocalDescription(offer);
+        });
+    }
+
+    if (btnAcceptP2pStep) {
+        btnAcceptP2pStep.addEventListener('click', () => {
+            p2pTokenBox.value = '';
+            p2pTokenBox.placeholder = 'Pega aquí el código del otro celular y pulsa PROCESAR Y CONECTAR...';
+            p2pQrContainer.classList.add('hidden');
+            p2pTokenBox.focus();
+        });
+    }
+
+    if (btnCopyP2pToken) {
+        btnCopyP2pToken.addEventListener('click', () => {
+            if (p2pTokenBox.value) {
+                navigator.clipboard.writeText(p2pTokenBox.value).then(() => {
+                    alert('Código copiado. Envíalo o pégalo en el otro celular.');
+                }).catch(() => {
+                    p2pTokenBox.select();
+                    document.execCommand('copy');
+                    alert('Código copiado.');
+                });
             }
         });
     }
 
-    function handleIncomingP2PPacket(packet, peerCallsign) {
-        if (!packet || !packet.type) return;
-        const msgId = packet.msgId || packet.id;
-        if (registerMeshMsg(msgId)) return; // Desduplicar
+    if (btnConnectP2pToken) {
+        btnConnectP2pToken.addEventListener('click', async () => {
+            const raw = p2pTokenBox.value.trim();
+            if (!raw) return;
+            try {
+                const decoded = JSON.parse(atob(raw));
+                if (decoded.t === 'O') {
+                    // Recibimos una Oferta -> creamos Respuesta
+                    const pc = new RTCPeerConnection({ iceServers: [] });
+                    pc.ondatachannel = (ev) => {
+                        setupDataChannel(ev.channel, decoded.id || 'PAR', decoded.cs || 'PAR');
+                        webrtcPeers.set(decoded.id || 'PAR', { pc, dc: ev.channel, callsign: decoded.cs || 'PAR' });
+                        p2pOfflineModal.classList.add('hidden');
+                        speakEmergencyMessage('Enlace directo celular a celular completado.', true);
+                    };
 
-        if (packet.type === 'AUDIO_CHUNK') {
-            if (!isTransmitting) {
-                playAudioChunk(packet.data);
+                    pc.onicecandidate = (e) => {
+                        if (!e.candidate && pc.localDescription) {
+                            const ansToken = btoa(JSON.stringify({
+                                t: 'A',
+                                id: myNodeId,
+                                cs: myProfile.callsign,
+                                sdp: pc.localDescription
+                            }));
+                            p2pTokenBox.value = ansToken;
+                            renderQrToken(ansToken);
+                            alert('Respuesta generada. Copia este código de vuelta al Celular 1 para finalizar.');
+                        }
+                    };
+
+                    await pc.setRemoteDescription(new RTCSessionDescription(decoded.sdp));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                } else if (decoded.t === 'A' && manualOfflinePc) {
+                    await manualOfflinePc.setRemoteDescription(new RTCSessionDescription(decoded.sdp));
+                    p2pOfflineModal.classList.add('hidden');
+                    speakEmergencyMessage('Enlace directo celular a celular completado.', true);
+                }
+            } catch (e) {
+                alert('Código P2P inválido o incompleto.');
             }
-        } else if (packet.type === 'SOS_ALERT') {
-            showCriticalSosBanner(packet);
-            speakEmergencyMessage(`Alerta de auxilio recibida directamente de ${packet.callsign}: ${packet.message}`, true);
-            logBlackboxEvent('SOS', `ALERTA SOS P2P DIRECTA: ${packet.callsign}`, packet.message, packet.location);
-            startAudioBeacon();
-        } else if (packet.type === 'TACTICAL_TEXT') {
-            addChatMessage(packet);
-            logBlackboxEvent('TEXT', `TEXTO P2P DE ${packet.callsign}`, packet.text, packet.location);
-        } else if (packet.type === 'TRANSMIT_END') {
-            isReceiving = false;
-            nextPlayTime = 0;
-            intercomStatusBox.className = 'tx-rx-status';
-            intercomStatusLabel.textContent = 'LISTO - CANAL DESPEJADO';
-            statusPulseIcon.className = 'fa-solid fa-wave-square';
-            stopVisualizer();
-        }
+        });
     }
 
     // ==========================================================================
     // CAPACIDAD 2: BRÚJULA TÁCTICA & RADAR DE PROXIMIDAD GPS HACIA VÍCTIMAS
     // ==========================================================================
-    let deviceCompassHeading = 0; // 0-360 grados hacia el Norte
+    let deviceCompassHeading = 0;
 
     function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
         const R = 6371000;
@@ -1268,14 +1641,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const previousVal = radarTargetSelect.value;
         radarTargetSelect.innerHTML = '';
 
-        const peersWithGps = peers.filter(p => p.id !== socket.id && p.location);
+        const peersWithGps = peers.filter(p => p.id !== myNodeId && p.id !== socket.id && p.location);
 
         if (peersWithGps.length === 0) {
             radarTargetSelect.innerHTML = '<option value="">-- Sin víctimas detectadas con GPS --</option>';
             return;
         }
 
-        // Ordenar primero víctimas atrapadas y heridas
         peersWithGps.sort((a, b) => {
             const prio = { 'TRAPPED': 1, 'INJURED': 2, 'SEARCHING': 3, 'OK': 4 };
             return (prio[a.triage] || 5) - (prio[b.triage] || 5);
@@ -1300,7 +1672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateRadarDisplay() {
         if (!myProfile.location) {
-            radarMyCoords.textContent = 'GPS desactivado o esperando señal de satélite...';
+            radarMyCoords.textContent = 'GPS obteniendo señal de satélite...';
             radarDistanceValue.textContent = '-- m';
             radarBearingValue.textContent = '--° (--)';
             return;
@@ -1329,7 +1701,6 @@ document.addEventListener('DOMContentLoaded', () => {
         radarDistanceValue.textContent = dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`;
         radarBearingValue.textContent = `${bearing}° (${card})`;
 
-        // La aguja apunta al rumbo relativo del dispositivo
         const relativeAngle = (bearing - deviceCompassHeading + 360) % 360;
         radarArrowWrapper.style.transform = `rotate(${relativeAngle}deg)`;
     }
@@ -1352,7 +1723,6 @@ document.addEventListener('DOMContentLoaded', () => {
         speakEmergencyMessage(`Rumbo hacia ${targetPeer.callsign}: ${bearing} grados dirección ${card}, distancia ${distText}.`, true);
     });
 
-    // Calibración y permiso del sensor de orientación (Requerido en Safari iOS 13+)
     radarCalibrateBtn.addEventListener('click', async () => {
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
             try {
@@ -1361,22 +1731,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.addEventListener('deviceorientation', handleDeviceOrientation, true);
                     alert('Sensor magnético calibrado y activo.');
                 } else {
-                    alert('Permiso de sensor denegado por el usuario.');
+                    alert('Permiso de sensor denegado.');
                 }
-            } catch (err) {
-                console.warn('Error solicitando orientación:', err);
-            }
+            } catch (err) {}
         } else {
-            alert('Sensor de brújula magnética activado automáticamente.');
+            alert('Sensor de brújula magnética activo.');
         }
     });
 
     function handleDeviceOrientation(event) {
         let heading = null;
         if (event.webkitCompassHeading) {
-            heading = event.webkitCompassHeading; // iOS Safari
+            heading = event.webkitCompassHeading;
         } else if (event.alpha !== null) {
-            heading = 360 - event.alpha; // Android Chrome
+            heading = 360 - event.alpha;
         }
 
         if (heading !== null) {
@@ -1409,16 +1777,13 @@ document.addEventListener('DOMContentLoaded', () => {
             blackboxDb = e.target.result;
             loadBlackboxLogs();
         };
-        request.onerror = (e) => {
-            console.error('[Blackbox] Error abriendo IndexedDB:', e);
-        };
     }
 
     function logBlackboxEvent(type, title, details, coords = null) {
         const eventItem = {
             timestamp: new Date().toISOString(),
             timeString: new Date().toLocaleTimeString(),
-            type, // 'SOS', 'TRIAGE', 'TEXT', 'P2P', 'SYSTEM'
+            type,
             title,
             details,
             coords: coords || myProfile.location
@@ -1430,11 +1795,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (blackboxDb) {
             try {
                 const tx = blackboxDb.transaction('incident_logs', 'readwrite');
-                const store = tx.objectStore('incident_logs');
-                store.add(eventItem);
-            } catch (e) {
-                console.error('[Blackbox] Error guardando registro:', e);
-            }
+                tx.objectStore('incident_logs').add(eventItem);
+            } catch (e) {}
         }
 
         updateBlackboxCounters();
@@ -1444,8 +1806,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadBlackboxLogs() {
         if (!blackboxDb) return;
         const tx = blackboxDb.transaction('incident_logs', 'readonly');
-        const store = tx.objectStore('incident_logs');
-        const req = store.getAll();
+        const req = tx.objectStore('incident_logs').getAll();
 
         req.onsuccess = () => {
             const all = req.result || [];
@@ -1459,7 +1820,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateBlackboxCounters() {
         const total = inMemoryLogs.length;
         const sosCount = inMemoryLogs.filter(e => e.type === 'SOS').length;
-        const victimsCount = inMemoryLogs.filter(e => e.type === 'TRIAGE' && (e.details.includes('Herido') || e.details.includes('Atrapado'))).length;
+        const victimsCount = inMemoryLogs.filter(e => e.type === 'TRIAGE' && (e.details.includes('Herido') || e.details.includes('Atrapado') || e.details.includes('INJURED') || e.details.includes('TRAPPED'))).length;
 
         bbTotalCount.textContent = total;
         bbSosCount.textContent = sosCount;
@@ -1547,20 +1908,18 @@ document.addEventListener('DOMContentLoaded', () => {
         pwaInstallBtn.style.borderColor = '#00ff66';
         pwaInstallBtn.style.color = '#00ff66';
     } else {
+        // Mostrar siempre el botón INSTALAR para acceso directo en Android/iOS
+        pwaInstallBtn.classList.remove('hidden');
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredInstallPrompt = e;
             pwaInstallBtn.classList.remove('hidden');
         });
-
-        if (isIos) {
-            pwaInstallBtn.classList.remove('hidden');
-        }
     }
 
     pwaInstallBtn.addEventListener('click', async () => {
         if (isStandalone) {
-            alert('La app ya está instalada y operando en modo táctico a pantalla completa.');
+            alert('La app ya está instalada en tu teléfono para uso 100% sin internet.');
             return;
         }
 
@@ -1568,13 +1927,13 @@ document.addEventListener('DOMContentLoaded', () => {
             deferredInstallPrompt.prompt();
             const { outcome } = await deferredInstallPrompt.userChoice;
             if (outcome === 'accepted') {
-                pwaInstallBtn.classList.add('hidden');
+                pwaInstallBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> INSTALADA';
             }
             deferredInstallPrompt = null;
         } else if (isIos) {
             iosInstallModal.classList.remove('hidden');
         } else {
-            alert('Para instalar la aplicación, toca el menú de tu navegador y selecciona "Instalar aplicación" o "Agregar a la pantalla principal".');
+            alert('Para instalar en tu pantalla de inicio: abre el menú del navegador (⋮) y toca "Instalar aplicación" o "Agregar a pantalla principal".');
         }
     });
 
@@ -1583,13 +1942,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- RECUPERACIÓN TRAS SUSPENSIÓN / APAGADO DE PANTALLA ---
     function handleWakeupAndReconnect() {
-        console.log('[Wakeup] Reactivando sistema tras reposo...');
         requestScreenWakeLock();
         unlockAudioAndWake();
-
-        if (socket && !socket.connected) {
-            socket.connect();
-        }
 
         if (micStream) {
             const tracks = micStream.getAudioTracks();
@@ -1598,10 +1952,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (myProfile.channel) {
-            socket.emit('CHANGE_CHANNEL', myProfile.channel);
-        }
-
+        sendPresenceHeartbeat();
         nextPlayTime = 0;
     }
 
@@ -1614,110 +1965,17 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('pageshow', handleWakeupAndReconnect);
     window.addEventListener('online', handleWakeupAndReconnect);
 
-    // --- SOCKET.IO EVENTOS DE RED ---
-    socket.on('connect', () => {
-        meshStatusBadge.querySelector('.mesh-dot').className = 'mesh-dot online';
-        meshStatusText.textContent = 'MESH P2P ACTIVO';
-        if (myProfile.channel) {
-            socket.emit('CHANGE_CHANNEL', myProfile.channel);
-        }
-        logBlackboxEvent('SYSTEM', 'RED CONECTADA', 'Enlace establecido con el servidor central de comunicaciones');
-    });
-
-    socket.on('disconnect', () => {
-        meshStatusBadge.querySelector('.mesh-dot').className = 'mesh-dot offline';
-        meshStatusText.textContent = 'RECONECTANDO...';
-        logBlackboxEvent('SYSTEM', 'SERVIDOR DESCONECTADO', 'Operando en modo autónomo / Malla directa P2P');
-    });
-
-    socket.on('INIT_RADIO', (data) => {
-        myProfile = data.profile;
-        emergencyCallsignInput.value = myProfile.callsign;
-        emergencyChannelSelect.value = String(myProfile.channel || 1);
-        socket.emit('CHANGE_CHANNEL', myProfile.channel || 1);
-
-        if (data.activeSos && data.activeSos.length > 0) {
-            const sos = data.activeSos[0];
-            showCriticalSosBanner(sos);
-            logBlackboxEvent('SOS', `SOS ACTIVO: ${sos.callsign}`, sos.message, sos.location);
-        }
-    });
-
-    socket.on('PEERS_UPDATE', (peers) => {
-        renderCensusList(peers);
-    });
-
+    // --- COMPATIBILIDAD OPCIONAL CON SOCKET.IO LOCAL ---
     socket.on('TRANSMIT_GRANTED', () => {
-        isTransmitting = true;
-        isVoxRequestPending = false;
-        emergencyPttBtn.classList.add('transmitting');
-        pttMainLabel.textContent = isVoxTransmitting ? 'VOX HABLANDO...' : 'TRANSMITIENDO...';
-        intercomStatusBox.className = 'tx-rx-status transmitting';
-        intercomStatusLabel.textContent = `TRANSMITIENDO EN VIVO (CH ${myProfile.channel})`;
-        statusPulseIcon.className = 'fa-solid fa-microphone-lines';
-
-        if ('vibrate' in navigator) navigator.vibrate(40);
-        startVisualizer();
-    });
-
-    socket.on('TRANSMIT_REJECTED', (data) => {
-        stopTransmitting();
-        alert(`CANAL OCUPADO: ${data.busyBy} está hablando en este momento.`);
-    });
-
-    socket.on('TRANSMIT_START', (data) => {
-        isReceiving = true;
-        nextPlayTime = 0;
-        intercomStatusBox.className = 'tx-rx-status receiving';
-        intercomStatusLabel.textContent = `RECIBIENDO: ${data.callsign}`;
-        statusPulseIcon.className = 'fa-solid fa-volume-high';
-        startVisualizer();
+        grantTransmitState();
     });
 
     socket.on('AUDIO_CHUNK', (data) => {
         const msgId = data.msgId || data.packetId;
         if (registerMeshMsg(msgId)) return;
         if (!isTransmitting) {
-            playAudioChunk(data.data || data);
+            playAudioChunk(data.data || data, data.callsign);
         }
-    });
-
-    socket.on('TRANSMIT_END', () => {
-        isReceiving = false;
-        nextPlayTime = 0;
-        intercomStatusBox.className = 'tx-rx-status';
-        intercomStatusLabel.textContent = 'LISTO - CANAL DESPEJADO';
-        statusPulseIcon.className = 'fa-solid fa-wave-square';
-        stopVisualizer();
-    });
-
-    socket.on('SOS_ALERT_BROADCAST', (sosData) => {
-        const msgId = sosData.msgId || sosData.id;
-        if (registerMeshMsg(msgId)) return;
-
-        showCriticalSosBanner(sosData);
-        if ('vibrate' in navigator) navigator.vibrate([400, 150, 400, 150, 400]);
-        speakEmergencyMessage(`¡Atención! Alerta de auxilio emitida por ${sosData.callsign}. ${sosData.message}`, true);
-        logBlackboxEvent('SOS', `ALERTA SOS RED: ${sosData.callsign}`, sosData.message, sosData.location);
-        startAudioBeacon();
-    });
-
-    socket.on('SOS_CANCELLED', () => {
-        criticalSosBanner.classList.add('hidden');
-        stopAudioBeacon();
-        logBlackboxEvent('SYSTEM', 'ALERTA SOS CANCELADA', 'Frecuencia de emergencia normalizada');
-    });
-
-    socket.on('TACTICAL_TEXT_RECEIVED', (msgData) => {
-        const msgId = msgData.msgId || msgData.id;
-        if (registerMeshMsg(msgId)) return;
-        addChatMessage(msgData);
-        logBlackboxEvent('TEXT', `MENSAJE DE ${msgData.callsign}`, msgData.text, msgData.location);
-    });
-
-    socket.on('TRIAGE_ANNOUNCED', (data) => {
-        speakEmergencyMessage(`Actualización: ${data.callsign} cambió su estado a ${data.triage}`);
-        logBlackboxEvent('TRIAGE', `TRIAGE: ${data.callsign}`, `Estado: ${data.triage}`, data.location);
     });
 
     function showCriticalSosBanner(sos) {
@@ -1732,7 +1990,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = emergencyCallsignInput.value.trim().toUpperCase();
         if (val) {
             myProfile.callsign = val;
-            socket.emit('UPDATE_PROFILE', { callsign: val });
+            localStorage.setItem('sos_callsign', val);
+            sendPresenceHeartbeat();
+            rebuildPeerListUI();
         }
     });
 
@@ -1743,7 +2003,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pct = Math.round(bat.level * 100);
                 myProfile.battery = pct;
                 batteryText.textContent = `${pct}%`;
-                socket.emit('UPDATE_PROFILE', { battery: pct });
+                sendPresenceHeartbeat();
             }
             updateBat();
             bat.addEventListener('levelchange', updateBat);
@@ -1760,7 +2020,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 gpsText.textContent = 'GPS OK';
                 gpsChip.style.color = '#00ff66';
-                socket.emit('UPDATE_PROFILE', { location: myProfile.location });
                 updateRadarDisplay();
             },
             () => {
@@ -1789,5 +2048,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Inicializar Censo, Wake Lock y Auto-Mesh Serverless
+    rebuildPeerListUI();
+    initServerlessAutoMesh();
     requestScreenWakeLock();
 });
