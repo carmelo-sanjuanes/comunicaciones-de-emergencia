@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. REGISTRO DE SERVICE WORKER PARA CACHÉ 100% OFFLINE ---
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js?v=38').then(() => {
-            console.log('[PWA] Service Worker v38 registrado para operación 100% sin internet.');
+        navigator.serviceWorker.register('./sw.js?v=39').then(() => {
+            console.log('[PWA] Service Worker v39 registrado para operación 100% sin internet.');
         }).catch(err => console.warn('[PWA] Advertencia SW:', err));
     }
 
@@ -1408,16 +1408,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- PANTALLA ÚNICA INTEGRADA (DESPLAZAMIENTO SUAVE SIN OCULTAR SECCIONES) ---
+    // --- NAVEGACIÓN DE CERO SCROLL CON AUDIO CONTINUO Y BARRA MINI-PTT ---
     function switchToTab(targetId) {
         unlockAudioAndWake();
-        const targetEl = document.getElementById(targetId);
-        if (targetEl) {
-            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        navButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === targetId));
+        opPanels.forEach(panel => {
+            if (panel.id === targetId) panel.classList.remove('hidden');
+            else panel.classList.add('hidden');
+        });
+
+        // Mostrar la barra global de Audio y PTT en las pestañas 2 a 6 para hablar y escuchar sin interrupción
+        if (globalMiniPttBar) {
+            if (targetId === 'tabIntercom') {
+                globalMiniPttBar.classList.add('hidden');
+            } else {
+                globalMiniPttBar.classList.remove('hidden');
+            }
         }
-        updateRadarDisplay();
-        renderBlackboxTimeline();
+
+        if (targetId === 'tabRadar') {
+            updateRadarDisplay();
+        } else if (targetId === 'tabBlackbox') {
+            renderBlackboxTimeline();
+        }
     }
+
+    navButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            switchToTab(btn.dataset.tab);
+        });
+    });
 
     blackoutToggleBtn.addEventListener('click', () => {
         oledBlackoutOverlay.classList.remove('hidden');
