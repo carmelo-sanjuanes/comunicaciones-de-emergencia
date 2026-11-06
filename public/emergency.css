@@ -625,63 +625,33 @@ html, body.emergency-body {
     margin: 0 auto;
 }
 
-/* INSIGNIA LATERAL TÁCTICA: SANJUANES SOLUCIONES */
+/* INSIGNIA VERTICAL TÁCTICA: SANJUANES SOLUCIONES */
 .sanjuanes-brand-box {
     position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 82px;
-    height: clamp(128px, 21dvh, 168px);
+    left: 2px;
+    top: 6px;
+    bottom: 6px;
+    width: 38px;
     background: linear-gradient(180deg, #0b1c0e 0%, #050d07 100%);
-    border: 1.5px solid #1f4d28;
-    border-left: 3px solid var(--rescue-green);
-    border-radius: 10px;
-    padding: 8px 4px;
+    border: 2px solid var(--rescue-green);
+    border-radius: 8px;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
-    text-align: center;
-    gap: 5px;
-    box-shadow: 0 0 14px rgba(0, 255, 102, 0.12);
+    box-shadow: 0 0 12px rgba(0, 255, 102, 0.22);
+    overflow: hidden;
 }
 
-.sanjuanes-brand-box .brand-icon {
-    font-size: 1.35rem;
-    color: var(--rescue-green);
-    margin-bottom: 2px;
-    filter: drop-shadow(0 0 6px rgba(0, 255, 102, 0.4));
-}
-
-.sanjuanes-brand-box .brand-main {
-    font-size: 0.68rem;
-    font-weight: 900;
-    color: #ffffff;
-    letter-spacing: 0.4px;
-    line-height: 1.1;
-}
-
-.sanjuanes-brand-box .brand-sub {
-    font-size: 0.62rem;
+.sanjuanes-brand-box .brand-vertical-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 0.78rem;
     font-weight: 900;
     color: var(--rescue-green);
-    letter-spacing: 0.5px;
-    line-height: 1.1;
-}
-
-.sanjuanes-brand-box .brand-line {
-    width: 70%;
-    height: 1px;
-    background: #1f4d28;
-    margin: 2px 0;
-}
-
-.sanjuanes-brand-box .brand-tag {
-    font-size: 0.56rem;
-    font-weight: 800;
-    color: #88b890;
-    letter-spacing: 0.5px;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    text-shadow: 0 0 6px rgba(0, 255, 102, 0.35);
 }
 
 .big-ptt-button {
