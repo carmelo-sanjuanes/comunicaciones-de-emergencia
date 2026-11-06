@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>S.O.S. RESCATE - Malla P2P Descentralizada</title>
     <link rel="manifest" href="manifest-emergency.json">
-    <link rel="stylesheet" href="emergency.css?v=41">
+    <link rel="stylesheet" href="emergency.css?v=42">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -129,7 +129,7 @@
              ================================================================== -->
         <section id="tabIntercom" class="op-panel active">
 
-            <!-- CANAL + ESTADO + ONDA EN UNA SOLA TARJETA COMPACTA -->
+            <!-- CANAL + ESTADO INTEGRADO EN LA ONDA (NUNCA SE SALE AL HACER PTT) -->
             <div class="voice-status-card">
                 <div class="voice-card-header">
                     <select id="emergencyChannelSelect" class="tactical-select" aria-label="Canal de emergencia">
@@ -138,14 +138,14 @@
                         <option value="3">CANAL 3: ASISTENCIA MÉDICA</option>
                         <option value="4">CANAL 4: EVACUACIÓN Y LOGÍSTICA</option>
                     </select>
-                    <div class="tx-rx-status" id="intercomStatusBox">
-                        <i class="fa-solid fa-wave-square" id="statusPulseIcon"></i>
-                        <span id="intercomStatusLabel">LISTO</span>
-                    </div>
                 </div>
 
                 <div class="oscilloscope-container">
-                    <canvas id="waveformCanvas" width="400" height="32"></canvas>
+                    <canvas id="waveformCanvas" width="400" height="38"></canvas>
+                    <div class="tx-rx-status" id="intercomStatusBox">
+                        <i class="fa-solid fa-wave-square" id="statusPulseIcon"></i>
+                        <span id="intercomStatusLabel">LISTO - CANAL ACTIVO</span>
+                    </div>
                 </div>
             </div>
 
@@ -442,6 +442,6 @@
 
     <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
-    <script src="emergency-app.js?v=41"></script>
+    <script src="emergency-app.js?v=42"></script>
 </body>
 </html>
