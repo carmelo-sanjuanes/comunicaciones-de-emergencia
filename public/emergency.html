@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>S.O.S. RESCATE - Malla P2P Descentralizada</title>
     <link rel="manifest" href="manifest-emergency.json">
-    <link rel="stylesheet" href="emergency.css?v=42">
+    <link rel="stylesheet" href="emergency.css?v=43">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -250,12 +250,13 @@
                 <select id="radarTargetSelect" class="tactical-select" aria-label="Persona a localizar">
                     <option value="">-- Buscando otro celular con GPS... --</option>
                 </select>
-                <div class="compass-live-pill" id="compassLivePill">
-                    <i class="fa-regular fa-compass"></i> <strong id="myCompassHeadingText">0° (N)</strong>
-                </div>
             </div>
 
             <div class="radar-main-split">
+                <div class="compass-live-pill" id="compassLivePill">
+                    <i class="fa-regular fa-compass"></i> TU BRÚJULA: <strong id="myCompassHeadingText">0° (N)</strong>
+                </div>
+
                 <div class="radar-compass-disc" id="radarCompassDisc">
                     <div class="compass-rose-ring" id="compassRoseRing">
                         <div class="compass-cardinal compass-n">N</div>
@@ -442,6 +443,6 @@
 
     <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
-    <script src="emergency-app.js?v=42"></script>
+    <script src="emergency-app.js?v=43"></script>
 </body>
 </html>

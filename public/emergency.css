@@ -906,20 +906,23 @@ html, body.emergency-body {
 }
 
 .compass-live-pill {
-    background: #0f2414;
+    width: 100%;
+    background: #0b1f10;
     border: 1.5px solid var(--rescue-green);
     border-radius: 8px;
-    padding: 6px 10px;
-    height: 36px;
+    padding: 5px 12px;
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 0.82rem;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.84rem;
+    font-weight: 800;
     white-space: nowrap;
 }
 
 .compass-live-pill strong {
     color: var(--rescue-green);
+    font-size: 0.92rem;
 }
 
 .radar-main-split {
