@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>S.O.S. RESCATE - Sistema Táctico de Misión Crítica</title>
+    <title>S.O.S. RESCATE - Malla P2P Descentralizada</title>
     <link rel="manifest" href="manifest-emergency.json">
-    <link rel="stylesheet" href="emergency.css?v=35">
+    <link rel="stylesheet" href="emergency.css?v=36">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -49,9 +49,9 @@
         <!-- CABECERA TÁCTICA -->
         <header class="tactical-header">
             <div class="header-left">
-                <div class="mesh-node-badge" id="meshStatusBadge">
+                <div class="mesh-node-badge" id="meshStatusBadge" title="Estado de la Malla Descentralizada">
                     <span class="mesh-dot online"></span>
-                    <span id="meshStatusText">MESH P2P ACTIVO</span>
+                    <span id="meshStatusText">MALLA P2P LISTA</span>
                 </div>
                 <div class="callsign-chip" id="callsignChip" title="Toca para editar tu indicativo">
                     <i class="fa-solid fa-id-badge"></i>
@@ -60,9 +60,9 @@
             </div>
 
             <div class="header-right">
-                <span id="p2pMeshChip" class="telemetry-chip p2p-chip" title="Enlaces directos WebRTC entre celulares">
-                    <i class="fa-solid fa-diagram-project"></i> <span id="p2pMeshText">0 P2P</span>
-                </span>
+                <button id="p2pMeshChip" class="telemetry-chip p2p-chip" title="Toca para Enlace Directo Celular-a-Celular sin Internet (QR / Código)">
+                    <i class="fa-solid fa-diagram-project"></i> <span id="p2pMeshText">ENLAZAR P2P</span>
+                </button>
                 <span id="batteryChip" class="telemetry-chip" title="Batería Restante">
                     <i class="fa-solid fa-battery-full"></i> <span id="batteryText">100%</span>
                 </span>
@@ -150,7 +150,7 @@
                     <div class="ptt-core">
                         <i class="fa-solid fa-microphone-lines ptt-mic-icon"></i>
                         <span class="ptt-main-label" id="pttMainLabel">PRESIONA PARA HABLAR</span>
-                        <small class="ptt-sub-label">O pulsa Barra Espaciadora / Teclas Volumen</small>
+                        <small class="ptt-sub-label">Voz HD Directa Celular a Celular (P2P)</small>
                     </div>
                 </button>
 
@@ -205,7 +205,7 @@
             </div>
         </section>
 
-        <!-- SECCIÓN 3: RADAR TÁCTICO & BRÚJULA VECTORIAL (NUEVA FUNCIÓN) -->
+        <!-- SECCIÓN 3: RADAR TÁCTICO & BRÚJULA VECTORIAL -->
         <section id="tabRadar" class="op-panel hidden">
             <div class="section-banner">
                 <h3><i class="fa-solid fa-compass"></i> RADAR TÁCTICO & BRÚJULA VECTORIAL</h3>
@@ -296,7 +296,6 @@
                         </label>
                     </div>
 
-                    <!-- Indicador visual de 3 impactos rítmicos -->
                     <div class="impact-dots-container">
                         <div class="hit-dot" id="hitDot1" title="Primer impacto">1</div>
                         <div class="hit-dot" id="hitDot2" title="Segundo impacto">2</div>
@@ -332,7 +331,6 @@
 
         <!-- SECCIÓN 5: MENSAJES TÁCTICOS Y TEXT-TO-SPEECH (LECTURA DE VOZ) -->
         <section id="tabChat" class="op-panel hidden">
-            <!-- BARRA DE CONFIGURACIÓN TTS -->
             <div class="tts-header-bar">
                 <label class="tactical-toggle" title="Lee en voz alta todos los mensajes recibidos para no tener que mirar el teléfono">
                     <input type="checkbox" id="ttsAudioReadToggle" checked>
@@ -341,7 +339,6 @@
                 </label>
             </div>
 
-            <!-- BOTONES DE MENSAJES RÁPIDOS DE EMERGENCIA -->
             <div class="quick-emergency-messages">
                 <button class="quick-sos-msg" data-msg="¡ESTAMOS A SALVO!"><i class="fa-solid fa-check"></i> A Salvo</button>
                 <button class="quick-sos-msg" data-msg="¡NECESITAMOS BOTIQUÍN Y PRIMEROS AUXILIOS!"><i class="fa-solid fa-kit-medical"></i> Botiquín</button>
@@ -351,12 +348,8 @@
                 <button class="quick-sos-msg" data-msg="VÍA DE EVACUACIÓN DESPEJADA"><i class="fa-solid fa-route"></i> Vía Libre</button>
             </div>
 
-            <!-- HISTORIAL DE MENSAJES TÁCTICOS -->
-            <div class="emergency-chat-history" id="emergencyChatHistory">
-                <!-- Mensajes -->
-            </div>
+            <div class="emergency-chat-history" id="emergencyChatHistory"></div>
 
-            <!-- ENTRADA DE TEXTO -->
             <div class="emergency-input-bar">
                 <input type="text" id="emergencyChatInput" placeholder="Mensaje de auxilio o coordinación..." autocomplete="off">
                 <button id="emergencySendChatBtn" class="btn-send"><i class="fa-solid fa-paper-plane"></i></button>
@@ -370,7 +363,6 @@
                 <p>Registro local inmutable de alertas SOS, triages y coordenadas satelitales (almacenamiento IndexedDB).</p>
             </div>
 
-            <!-- CONTADORES DE BITÁCORA -->
             <div class="blackbox-stats-grid">
                 <div class="blackbox-stat-card">
                     <span class="stat-number" id="bbTotalCount">0</span>
@@ -386,19 +378,43 @@
                 </div>
             </div>
 
-            <!-- BARRA DE ACCIONES DE BITÁCORA -->
             <div class="blackbox-actions-bar">
                 <button id="bbExportBtn" class="bb-btn"><i class="fa-solid fa-file-arrow-down"></i> EXPORTAR BITÁCORA</button>
                 <button id="bbSpeakLastBtn" class="bb-btn"><i class="fa-solid fa-volume-high"></i> DICTAR ÚLTIMO</button>
                 <button id="bbClearBtn" class="bb-btn danger"><i class="fa-solid fa-trash-can"></i> LIMPIAR</button>
             </div>
 
-            <!-- LÍNEA TEMPORAL DE EVENTOS HISTÓRICOS -->
             <div class="blackbox-timeline" id="blackboxTimeline">
                 <div class="bb-empty-notice">No hay eventos grabados en la caja negra aún.</div>
             </div>
         </section>
 
+    </div>
+
+    <!-- MODAL ENLACE DIRECTO P2P OFFLINE (HOTSPOT SIN INTERNET NI SERVIDOR) -->
+    <div id="p2pOfflineModal" class="tactical-modal hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-tower-cell"></i> ENLACE P2P SIN SERVIDOR</h3>
+                <button id="closeP2pModalBtn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.76rem; color:#88cc90; margin-bottom:8px;">
+                    <strong>Auto-Mesh:</strong> Si ambos celulares tienen señal o comparten red, se conectan solos en segundos.<br>
+                    <strong>100% Sin Internet (Hotspot):</strong> Usa estos dos pasos para enlazar dos celulares directamente sin ningún servidor:
+                </p>
+                <div style="display:flex; gap:6px; margin-bottom:8px;">
+                    <button id="btnCreateP2pOffer" class="bb-btn" style="padding:8px;"><i class="fa-solid fa-qrcode"></i> 1. CREAR INVITACIÓN (CEL 1)</button>
+                    <button id="btnAcceptP2pStep" class="bb-btn" style="padding:8px;"><i class="fa-solid fa-link"></i> 2. PEGAR CÓDIGO (CEL 2)</button>
+                </div>
+                <div id="p2pQrContainer" style="display:flex; justify-content:center; margin:8px 0; background:#fff; padding:8px; border-radius:6px;" class="hidden"></div>
+                <textarea id="p2pTokenBox" rows="3" placeholder="Aquí aparecerá tu código de enlace o pega aquí el del otro celular..." style="width:100%; background:#050b06; color:#00ff66; border:1px solid #1f4425; border-radius:4px; padding:6px; font-size:0.7rem; font-family:monospace;"></textarea>
+                <div style="display:flex; gap:6px; margin-top:6px;">
+                    <button id="btnCopyP2pToken" class="bb-btn"><i class="fa-solid fa-copy"></i> COPIAR CÓDIGO</button>
+                    <button id="btnConnectP2pToken" class="bb-btn" style="background:#00ff66; color:#000;"><i class="fa-solid fa-bolt"></i> PROCESAR Y CONECTAR</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL GUÍA DE INSTALACIÓN IOS -->
@@ -409,7 +425,7 @@
                 <button id="closeIosModalBtn" class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
-                <p>Para operar en modo táctico a pantalla completa sin distracciones ni barras de navegación:</p>
+                <p>Para guardar la app en la memoria de tu iPhone y usarla 100% sin internet:</p>
                 <ol class="ios-install-steps">
                     <li>Toca el botón <strong>Compartir</strong> <i class="fa-solid fa-arrow-up-from-bracket"></i> en la barra de Safari.</li>
                     <li>Desplázate y selecciona <strong>"Agregar a pantalla de inicio"</strong> <i class="fa-solid fa-square-plus"></i>.</li>
@@ -420,8 +436,9 @@
         </div>
     </div>
 
-    <!-- CARGA DE LIBRERÍAS Y SCRIPT DEL MOTOR DE EMERGENCIA -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="emergency-app.js?v=35"></script>
+    <!-- LIBRERÍAS DE MALLA DESCENTRALIZADA P2P Y QR -->
+    <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
+    <script src="emergency-app.js?v=36"></script>
 </body>
 </html>

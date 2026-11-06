@@ -1,7 +1,7 @@
 {
   "short_name": "SOS Rescate",
-  "name": "S.O.S. RESCATE - Misión Crítica",
-  "description": "Sistema táctico de comunicación de emergencia, censo de sobrevivientes y navegación por radar",
+  "name": "S.O.S. RESCATE - Misión Crítica P2P",
+  "description": "Sistema táctico descentralizado de comunicación de emergencia Celular a Celular, censo de sobrevivientes y navegación por radar",
   "icons": [
     {
       "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000000'/><circle cx='50' cy='50' r='36' fill='%23ff0033'/><path d='M35 50 L65 50 M50 35 L50 65' stroke='%23ffffff' stroke-width='8' stroke-linecap='round'/></svg>",
@@ -10,7 +10,8 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "./emergency",
+  "start_url": "./emergency.html",
+  "scope": "./",
   "background_color": "#000000",
   "theme_color": "#000000",
   "display": "standalone",
